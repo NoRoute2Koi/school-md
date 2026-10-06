@@ -20,10 +20,21 @@
   - Week navigation (previous/next week switcher, "Сегодня" reset button, week date range)
   - Full MD3 Expressive styling with animated pill selectors, status badges (live, exam, replacement), and cards
   - Multi-level caching (memory cache & persistent storage)
+- [x] Implement Material 3 Expressive Homework screen:
+  - Dynamic API fetching from `/api/family/web/v1/homeworks`
+  - Week switcher, progress indicator, search bar, and status filtering (Все, К сдаче, Выполненные)
+  - Teacher resolution dynamically saved from `/lesson_schedule_items/{id}` into local private cache
+- [x] Implement Material 3 Expressive Marks screen:
+  - Header with week switcher and average score banner
+  - Date-feed mode and Subject-grouped mode
+  - Detailed bottom sheet dialog for marks breakdown
+- [x] Support regional endpoints (Moscow, Mosreg, Kaluga, Tyumen, Tatarstan, Dagestan)
+- [x] UI/UX polish across Schedule, Marks, and Profile screens (spacing, ribbon days, developer footer)
+- [x] Comprehensive repository privacy audit: sanitized test mocks, purged reflog, ensured zero personal data
 
 ## In Progress
-- [ ] Diary marks & homework API integration (MOS / Mosreg)
+- [ ] Ready for testing and release v0.3.3 / subsequent features
 
 ## Backlog / Future
-- [ ] Material 3 Expressive Marks & Homework screens
-- [ ] Support additional regions from `PROJECT.md` (Kaluga, Tyumen, Tatarstan, Dagestan)
+- [ ] Push notifications for new marks and homework
+- [ ] Offline caching sync and background refresh
