@@ -37,6 +37,14 @@ class MainActivity : ComponentActivity() {
                 if (session != null) {
                     DashboardScreen(
                         session = session,
+                        onAvatarChanged = { uri ->
+                            authRepository.saveCustomAvatar(uri)
+                            currentSession = authRepository.getSession()
+                        },
+                        onNameChanged = { name ->
+                            authRepository.saveCustomName(name)
+                            currentSession = authRepository.getSession()
+                        },
                         onLogout = {
                             authRepository.clearSession()
                             currentSession = null

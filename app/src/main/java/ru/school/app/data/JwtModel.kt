@@ -10,6 +10,10 @@ data class JwtData(
     val expirationSeconds: Long?,
     val issuedAtSeconds: Long?,
     val roles: List<String>,
+    val firstName: String?,
+    val lastName: String?,
+    val middleName: String?,
+    val avatarUrl: String?,
     val payloadJson: String
 ) {
     val isExpired: Boolean
@@ -25,6 +29,29 @@ data class JwtData(
             val nowSec = System.currentTimeMillis() / 1000
             return ((exp - nowSec) / 60).coerceAtLeast(0)
         }
+
+    val displayName: String
+        get() {
+            val full = listOfNotNull(lastName, firstName).filter { it.isNotBlank() }.joinToString(" ")
+            return when {
+                full.isNotBlank() -> full
+                !firstName.isNullOrBlank() -> firstName
+                !subject.isNullOrBlank() -> "ID $subject"
+                else -> "Пользователь"
+            }
+        }
+
+    val initials: String
+        get() {
+            val f = firstName?.firstOrNull()?.uppercaseChar()
+            val l = lastName?.firstOrNull()?.uppercaseChar()
+            return when {
+                l != null && f != null -> "$l$f"
+                f != null -> "$f"
+                l != null -> "$l"
+                else -> "МШ"
+            }
+        }
 }
 
 object JwtDecoder {
@@ -33,8 +60,8 @@ object JwtDecoder {
         val parts = trimmed.split(".")
         require(parts.size >= 2) { "Invalid JWT structure: expected at least 2 parts separated by '.'" }
 
-        val decoder = Base64.getUrlDecoder()
-        val payloadBytes = decoder.decode(padBase64(parts[1]))
+        val normalized = parts[1].replace('-', '+').replace('_', '/')
+        val payloadBytes = Base64.getDecoder().decode(padBase64(normalized))
         val payloadStr = String(payloadBytes, StandardCharsets.UTF_8)
 
         val json = JSONObject(payloadStr)
@@ -53,12 +80,38 @@ object JwtDecoder {
             roles.add(json.optString("role"))
         }
 
+        val profileObj = json.optJSONObject("profile") ?: json.optJSONObject("user")
+
+        val firstName = json.optStringOrNull("first_name")
+            ?: json.optStringOrNull("given_name")
+            ?: profileObj?.optStringOrNull("first_name")
+            ?: profileObj?.optStringOrNull("given_name")
+
+        val lastName = json.optStringOrNull("last_name")
+            ?: json.optStringOrNull("family_name")
+            ?: profileObj?.optStringOrNull("last_name")
+            ?: profileObj?.optStringOrNull("family_name")
+
+        val middleName = json.optStringOrNull("middle_name")
+            ?: json.optStringOrNull("patronymic")
+            ?: profileObj?.optStringOrNull("middle_name")
+
+        val avatarUrl = json.optStringOrNull("avatar_url")
+            ?: json.optStringOrNull("picture")
+            ?: json.optStringOrNull("avatar")
+            ?: profileObj?.optStringOrNull("avatar_url")
+            ?: profileObj?.optStringOrNull("avatar")
+
         JwtData(
             rawToken = trimmed,
             subject = subject,
             expirationSeconds = exp,
             issuedAtSeconds = iat,
             roles = roles,
+            firstName = firstName,
+            lastName = lastName,
+            middleName = middleName,
+            avatarUrl = avatarUrl,
             payloadJson = payloadStr
         )
     }
@@ -70,4 +123,9 @@ object JwtDecoder {
 
     private fun padBase64(str: String): String =
         str + "=".repeat((4 - str.length % 4) % 4)
+
+    private fun JSONObject.optStringOrNull(key: String): String? {
+        val v = optString(key)
+        return if (v.isNullOrEmpty() || v == "null") null else v
+    }
 }

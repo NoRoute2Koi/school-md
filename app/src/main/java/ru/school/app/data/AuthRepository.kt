@@ -16,8 +16,16 @@ import java.util.concurrent.TimeUnit
 data class AuthSession(
     val region: Region,
     val token: String,
-    val jwtData: JwtData?
-)
+    val jwtData: JwtData?,
+    val customAvatarUri: String? = null,
+    val customName: String? = null
+) {
+    val effectiveDisplayName: String
+        get() = customName?.takeIf { it.isNotBlank() } ?: jwtData?.displayName ?: "Пользователь"
+
+    val effectiveAvatarUri: String?
+        get() = customAvatarUri ?: jwtData?.avatarUrl
+}
 
 class AuthRepository(context: Context) {
 
@@ -33,7 +41,6 @@ class AuthRepository(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     }.getOrElse {
-        // Fallback for devices where KeyStore has issues
         context.getSharedPreferences("school_auth_fallback_prefs", Context.MODE_PRIVATE)
     }
 
@@ -48,7 +55,9 @@ class AuthRepository(context: Context) {
         val regionName = prefs.getString(KEY_REGION, Region.MOSCOW.name)
         val region = Region.fromName(regionName)
         val jwt = JwtDecoder.decode(token).getOrNull()
-        return AuthSession(region, token, jwt)
+        val customAvatar = prefs.getString(KEY_AVATAR, null)
+        val customName = prefs.getString(KEY_CUSTOM_NAME, null)
+        return AuthSession(region, token, jwt, customAvatar, customName)
     }
 
     fun saveSession(region: Region, token: String): AuthSession {
@@ -58,13 +67,29 @@ class AuthRepository(context: Context) {
             .apply()
 
         val jwt = JwtDecoder.decode(token).getOrNull()
-        return AuthSession(region, token, jwt)
+        val customAvatar = prefs.getString(KEY_AVATAR, null)
+        val customName = prefs.getString(KEY_CUSTOM_NAME, null)
+        return AuthSession(region, token, jwt, customAvatar, customName)
+    }
+
+    fun saveCustomAvatar(uriString: String?) {
+        prefs.edit().apply {
+            if (uriString != null) putString(KEY_AVATAR, uriString) else remove(KEY_AVATAR)
+        }.apply()
+    }
+
+    fun saveCustomName(name: String?) {
+        prefs.edit().apply {
+            if (name != null) putString(KEY_CUSTOM_NAME, name) else remove(KEY_CUSTOM_NAME)
+        }.apply()
     }
 
     fun clearSession() {
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REGION)
+            .remove(KEY_AVATAR)
+            .remove(KEY_CUSTOM_NAME)
             .apply()
     }
 
@@ -93,7 +118,6 @@ class AuthRepository(context: Context) {
                         return
                     }
 
-                    // Try to parse refreshed token from body if present
                     val newToken = extractTokenFromBody(body) ?: session.token
                     if (newToken != session.token) {
                         saveSession(session.region, newToken)
@@ -120,5 +144,7 @@ class AuthRepository(context: Context) {
     companion object {
         private const val KEY_TOKEN = "auth_jwt_token"
         private const val KEY_REGION = "auth_region"
+        private const val KEY_AVATAR = "auth_custom_avatar_uri"
+        private const val KEY_CUSTOM_NAME = "auth_custom_name"
     }
 }
