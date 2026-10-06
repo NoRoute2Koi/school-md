@@ -2,6 +2,8 @@ package ru.school.app.ui.screens
 
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,11 +21,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Login
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -61,29 +64,24 @@ import ru.school.app.data.Region
 fun LoginScreen(
     onLoginSuccess: (Region, String) -> Unit
 ) {
-    var selectedRegion by remember { mutableStateOf(Region.MOSCOW) }
-    var showWebAuth by remember { mutableStateOf(false) }
-    var manualToken by remember { mutableStateOf("") }
-    var showManualInput by remember { mutableStateOf(false) }
-
+    var selectedRegion by remember { mutableStateOf(Region.MOSCOW_REGION) }
+    var tokenInput by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    val jwtValidation by remember(manualToken) {
+    val jwtValidation by remember(tokenInput) {
         derivedStateOf {
-            if (manualToken.isBlank()) null
-            else JwtDecoder.decode(manualToken)
+            if (tokenInput.isBlank()) null
+            else JwtDecoder.decode(tokenInput)
         }
     }
 
-    if (showWebAuth) {
-        WebAuthDialog(
-            region = selectedRegion,
-            onDismiss = { showWebAuth = false },
-            onTokenExtracted = { token ->
-                showWebAuth = false
-                onLoginSuccess(selectedRegion, token)
+    fun openBrowser(url: String) {
+        runCatching {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        )
+            context.startActivity(intent)
+        }
     }
 
     Scaffold(
@@ -143,6 +141,7 @@ fun LoginScreen(
                 }
             }
 
+            // Step 1 & 2 Card
             ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -164,122 +163,132 @@ fun LoginScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(4.dp))
 
-                    Button(
-                        onClick = { showWebAuth = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) {
-                        Icon(Icons.Default.Login, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Войти через ГосУслуги")
-                    }
-
+                    // Step 1: Login to Gosuslugi / portal
                     OutlinedButton(
-                        onClick = { showManualInput = !showManualInput },
+                        onClick = { openBrowser(selectedRegion.loginPortalUrl) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(Icons.Default.Key, contentDescription = null)
+                        Icon(Icons.Default.OpenInBrowser, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text(if (showManualInput) "Скрыть ввод токена" else "Ввести токен вручную")
+                        Text("1. Войти на сайт (${selectedRegion.apiHost})")
                     }
+
+                    // Step 2: Get token link
+                    Button(
+                        onClick = { openBrowser(selectedRegion.tokenUrl) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("2. Получить токен")
+                    }
+
+                    Text(
+                        text = "После входа на сайт, нажмите «2. Получить токен», скопируйте текст (начинается с eyJhbGci...) и вставьте в поле ниже.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
-            AnimatedVisibility(visible = showManualInput) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
-                    )
+            // Step 3: Paste and submit token
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Key,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Ручной ввод JWT токена",
+                            text = "3. Вставьте токен",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        Text(
-                            text = "Токен начинается с eyJhbGciOiJSUzI1NiJ9... и генерируется после авторизации.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
 
-                        OutlinedTextField(
-                            value = manualToken,
-                            onValueChange = { manualToken = it },
-                            label = { Text("JWT токен") },
-                            placeholder = { Text("eyJ...") },
-                            modifier = Modifier.fillMaxWidth(),
-                            maxLines = 4,
-                            trailingIcon = {
-                                IconButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                        val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
-                                        if (!clip.isNullOrBlank()) {
-                                            manualToken = clip.trim()
-                                        }
+                    OutlinedTextField(
+                        value = tokenInput,
+                        onValueChange = { tokenInput = it },
+                        label = { Text("JWT токен") },
+                        placeholder = { Text("eyJhbGciOiJSUzI1NiJ9...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 4,
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = clipboard.primaryClip?.getItemAt(0)?.text?.toString()
+                                    if (!clip.isNullOrBlank()) {
+                                        tokenInput = clip.trim().removeSurrounding("\"")
                                     }
-                                ) {
-                                    Icon(Icons.Default.ContentPaste, contentDescription = "Вставить")
                                 }
+                            ) {
+                                Icon(Icons.Default.ContentPaste, contentDescription = "Вставить")
                             }
-                        )
+                        }
+                    )
 
-                        jwtValidation?.let { result ->
-                            if (result.isSuccess) {
-                                val jwt = result.getOrThrow()
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = if (jwt.isExpired) "Токен истёк!" else "Токен валиден (осталось ${jwt.remainingMinutes} мин)",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (jwt.isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                                    )
-                                }
+                    jwtValidation?.let { result ->
+                        if (result.isSuccess) {
+                            val jwt = result.getOrThrow()
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (jwt.isExpired) "Токен истёк!" else "Токен валиден (осталось ${jwt.remainingMinutes} мин)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (jwt.isExpired) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                                )
+                            }
 
-                                Button(
-                                    onClick = {
-                                        onLoginSuccess(selectedRegion, manualToken.trim())
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("Применить токен")
-                                }
-                            } else {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Error,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text = "Некорректный формат токена",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.error
-                                    )
-                                }
+                            Button(
+                                onClick = {
+                                    onLoginSuccess(selectedRegion, tokenInput.trim())
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("Войти в приложение")
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Error,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = "Некорректный формат токена",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                     }
