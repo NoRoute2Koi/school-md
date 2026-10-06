@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EventBusy
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
@@ -56,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -634,22 +636,59 @@ fun LessonCard(
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            // Teacher info if known
+            if (!lesson.teacherName.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        text = lesson.teacherName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
 
             // Footer: Homework info matching mockup
-            if (lesson.homework != null || lesson.homeworkCount > 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            if (lesson.homeworkCount > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.Assignment,
                         contentDescription = null,
-                        modifier = Modifier.size(15.dp),
+                        modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(Modifier.width(6.dp))
+                    val count = lesson.homeworkCount
+                    val remainder10 = count % 10
+                    val remainder100 = count % 100
+                    val word = when {
+                        remainder100 in 11..19 -> "заданий"
+                        remainder10 == 1 -> "задание"
+                        remainder10 in 2..4 -> "задания"
+                        else -> "заданий"
+                    }
+                    val countText = "Есть $count $word"
+                    val desc = if (!lesson.homework.isNullOrBlank()) ": ${lesson.homework}" else ""
                     Text(
-                        text = if (lesson.homework != null) "Задание: ${lesson.homework}" else "${lesson.homeworkCount} Задание",
+                        text = "$countText$desc",
                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             } else {

@@ -12,8 +12,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import koi.schoolmd.data.AuthRepository
 import koi.schoolmd.data.AuthSession
+import koi.schoolmd.data.HomeworkRepository
 import koi.schoolmd.data.Region
 import koi.schoolmd.data.ScheduleRepository
+import koi.schoolmd.data.TeacherRepository
 import koi.schoolmd.ui.screens.DashboardScreen
 import koi.schoolmd.ui.screens.LoginScreen
 import koi.schoolmd.ui.theme.SchoolTheme
@@ -22,14 +24,17 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var authRepository: AuthRepository
     private lateinit var scheduleRepository: ScheduleRepository
+    private lateinit var homeworkRepository: HomeworkRepository
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val teacherRepository = TeacherRepository(applicationContext)
         authRepository = AuthRepository(applicationContext)
-        scheduleRepository = ScheduleRepository(applicationContext)
+        scheduleRepository = ScheduleRepository(applicationContext, teacherRepository)
+        homeworkRepository = HomeworkRepository(applicationContext, scheduleRepository, teacherRepository)
 
         intent.getStringExtra("token")?.takeIf { it.isNotBlank() }?.let { intentToken ->
             val regName = intent.getStringExtra("region")
@@ -62,6 +67,7 @@ class MainActivity : ComponentActivity() {
                     DashboardScreen(
                         session = session,
                         scheduleRepository = scheduleRepository,
+                        homeworkRepository = homeworkRepository,
                         onAvatarChanged = { uri ->
                             authRepository.saveCustomAvatar(uri)
                             currentSession = authRepository.getSession()

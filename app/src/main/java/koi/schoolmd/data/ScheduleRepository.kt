@@ -17,9 +17,13 @@ import java.time.OffsetDateTime
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class ScheduleRepository(context: Context) {
+class ScheduleRepository(
+    private val context: Context,
+    private val teacherRepository: TeacherRepository = TeacherRepository(context)
+) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences("school_schedule_prefs", Context.MODE_PRIVATE)
@@ -108,45 +112,68 @@ class ScheduleRepository(context: Context) {
 
         val guid = session.jwtData?.contingentGuid
             ?: cachedProfile?.contingentGuid
+            ?: session.studentProfile?.contingentGuid
+        val studentId = session.studentProfile?.studentId
+            ?: cachedProfile?.studentId
 
-        if (guid.isNullOrBlank()) {
+        if (guid.isNullOrBlank() || studentId == null) {
             fetchProfile(session) { profileRes ->
                 profileRes.fold(
                     onSuccess = { prof ->
                         val resolvedGuid = prof.contingentGuid
                             ?: session.jwtData?.subject
                             ?: ""
+                        val resolvedStudentId = prof.studentId
                         if (resolvedGuid.isBlank()) {
                             onComplete(Result.failure(IllegalStateException("Не удалось определить ID ученика")))
                         } else {
-                            fetchWeekFromApi(session, monday, resolvedGuid, cacheKey, onComplete)
+                            fetchWeekFromApi(session, monday, resolvedGuid, resolvedStudentId, cacheKey, onComplete)
                         }
                     },
                     onFailure = {
-                        onComplete(Result.failure(it))
+                        val fallbackGuid = guid ?: session.jwtData?.subject ?: ""
+                        if (fallbackGuid.isNotBlank()) {
+                            fetchWeekFromApi(session, monday, fallbackGuid, studentId, cacheKey, onComplete)
+                        } else {
+                            onComplete(Result.failure(it))
+                        }
                     }
                 )
             }
         } else {
-            fetchWeekFromApi(session, monday, guid, cacheKey, onComplete)
+            fetchWeekFromApi(session, monday, guid, studentId, cacheKey, onComplete)
         }
     }
+
+    private data class HomeworkEntry(
+        val subject: String,
+        val description: String
+    )
 
     private fun fetchWeekFromApi(
         session: AuthSession,
         monday: LocalDate,
         guid: String,
+        studentId: Long?,
         cacheKey: String,
         onComplete: (Result<List<DaySchedule>>) -> Unit
     ) {
         val sunday = monday.plusDays(6)
         val beginDate = monday.toString()
         val endDate = sunday.toString()
-        val url = "https://${session.region.apiHost}/api/eventcalendar/v1/api/events" +
+
+        val eventsUrl = "https://${session.region.apiHost}/api/eventcalendar/v1/api/events" +
                 "?person_ids=$guid&begin_date=$beginDate&end_date=$endDate"
 
-        val request = Request.Builder()
-            .url(url)
+        var eventsResultJson: JSONObject? = null
+        var eventsError: Exception? = null
+        val homeworksByDate = mutableMapOf<LocalDate, MutableList<HomeworkEntry>>()
+
+        val latch = CountDownLatch(if (studentId != null) 2 else 1)
+
+        // 1. Fetch Events
+        val eventsRequest = Request.Builder()
+            .url(eventsUrl)
             .addHeader("Authorization", "Bearer ${session.token}")
             .addHeader("X-Mes-Subsystem", "familyweb")
             .addHeader("X-Mes-Role", "student")
@@ -155,33 +182,198 @@ class ScheduleRepository(context: Context) {
             .get()
             .build()
 
-        httpClient.newCall(request).enqueue(object : Callback {
+        httpClient.newCall(eventsRequest).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e("ScheduleRepo", "Schedule request failed: ${e.message}")
-                onComplete(Result.failure(e))
+                eventsError = e
+                latch.countDown()
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use { resp ->
                     val body = resp.body?.string().orEmpty()
-                    if (!resp.isSuccessful) {
-                        Log.e("ScheduleRepo", "Schedule HTTP error ${resp.code}: $body")
-                        onComplete(Result.failure(IOException("HTTP ${resp.code}: $body")))
-                        return
-                    }
-
-                    runCatching {
-                        val json = JSONObject(body)
-                        val weekSchedule = parseEventsToWeekSchedule(json, monday)
-                        memoryCache[cacheKey] = weekSchedule
-                        onComplete(Result.success(weekSchedule))
-                    }.onFailure {
-                        Log.e("ScheduleRepo", "Schedule parse error", it)
-                        onComplete(Result.failure(it))
+                    if (resp.isSuccessful) {
+                        runCatching {
+                            eventsResultJson = JSONObject(body)
+                        }.onFailure {
+                            eventsError = Exception("JSON parse error: ${it.message}")
+                        }
+                    } else {
+                        eventsError = IOException("HTTP ${resp.code}: $body")
                     }
                 }
+                latch.countDown()
             }
         })
+
+        // 2. Fetch Homeworks in parallel
+        if (studentId != null) {
+            val hwUrl = "https://${session.region.apiHost}/api/family/mobile/v1/homeworks" +
+                    "?student_id=$studentId&from=$beginDate&to=$endDate"
+            val hwRequest = Request.Builder()
+                .url(hwUrl)
+                .addHeader("Authorization", "Bearer ${session.token}")
+                .addHeader("X-Mes-Subsystem", "familymp")
+                .addHeader("X-Mes-Role", "student")
+                .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+                .get()
+                .build()
+
+            httpClient.newCall(hwRequest).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    Log.d("ScheduleRepo", "Homeworks fetch failed in schedule: ${e.message}")
+                    latch.countDown()
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    response.use { resp ->
+                        val body = resp.body?.string().orEmpty()
+                        if (resp.isSuccessful) {
+                            runCatching {
+                                val json = JSONObject(body)
+                                val payload = json.optJSONArray("payload")
+                                if (payload != null) {
+                                    for (i in 0 until payload.length()) {
+                                        val hw = payload.optJSONObject(i) ?: continue
+                                        val desc = hw.optString("homework").ifEmpty { hw.optString("description") }
+                                        val sub = hw.optString("subject_name").trim()
+                                        val dateStr = hw.optString("date_prepared_for").take(10).ifEmpty {
+                                            hw.optString("date").take(10)
+                                        }
+                                        val hwDate = runCatching { LocalDate.parse(dateStr) }.getOrNull() ?: continue
+                                        synchronized(homeworksByDate) {
+                                            homeworksByDate.getOrPut(hwDate) { mutableListOf() }
+                                                .add(HomeworkEntry(subject = sub, description = desc))
+                                        }
+                                    }
+                                }
+                            }.onFailure {
+                                Log.e("ScheduleRepo", "Failed to parse schedule homeworks", it)
+                            }
+                        }
+                    }
+                    latch.countDown()
+                }
+            })
+        }
+
+        Thread {
+            latch.await(10, TimeUnit.SECONDS)
+            val json = eventsResultJson
+            if (json != null) {
+                // Discover any missing teachers for the subjects in this schedule directly from API
+                if (studentId != null) {
+                    fetchMissingTeachers(session, studentId, json)
+                }
+
+                runCatching {
+                    val weekSchedule = parseEventsToWeekSchedule(json, monday, homeworksByDate)
+                    memoryCache[cacheKey] = weekSchedule
+                    onComplete(Result.success(weekSchedule))
+                }.onFailure {
+                    Log.e("ScheduleRepo", "Schedule parse error", it)
+                    onComplete(Result.failure(it))
+                }
+            } else {
+                onComplete(Result.failure(eventsError ?: IOException("Не удалось загрузить расписание")))
+            }
+        }.start()
+    }
+
+    private fun fetchMissingTeachers(
+        session: AuthSession,
+        studentId: Long,
+        eventsJson: JSONObject
+    ) {
+        val eventsArray = eventsJson.optJSONArray("response") ?: return
+        val missingSubjects = mutableMapOf<String, Long>()
+
+        for (i in 0 until eventsArray.length()) {
+            val ev = eventsArray.optJSONObject(i) ?: continue
+            val sub = ev.optString("subject_name").trim()
+            val evId = ev.optLong("id").takeIf { it != 0L }
+                ?: ev.optLong("source_id").takeIf { it != 0L }
+            if (sub.isNotBlank() && evId != null && teacherRepository.getTeacher(sub) == null && !missingSubjects.containsKey(sub)) {
+                missingSubjects[sub] = evId
+            }
+        }
+
+        if (missingSubjects.isEmpty()) return
+
+        val teacherLatch = CountDownLatch(missingSubjects.size)
+        for ((sub, lessonId) in missingSubjects) {
+            val detailUrl = "https://${session.region.apiHost}/api/family/mobile/v1/lesson_schedule_items/$lessonId?student_id=$studentId"
+            val req = Request.Builder()
+                .url(detailUrl)
+                .addHeader("Authorization", "Bearer ${session.token}")
+                .addHeader("X-Mes-Subsystem", "familymp")
+                .addHeader("X-Mes-Role", "student")
+                .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+                .get()
+                .build()
+
+            httpClient.newCall(req).enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    teacherLatch.countDown()
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    response.use { resp ->
+                        if (resp.isSuccessful) {
+                            val body = resp.body?.string().orEmpty()
+                            runCatching {
+                                val data = JSONObject(body)
+                                val t = data.optJSONObject("teacher")
+                                if (t != null) {
+                                    val last = t.optString("last_name")
+                                    val first = t.optString("first_name")
+                                    val mid = t.optString("middle_name")
+                                    val fio = listOf(last, first, mid).filter { s -> s.isNotBlank() }.joinToString(" ")
+                                    if (fio.isNotBlank()) {
+                                        teacherRepository.saveTeacher(sub, fio)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    teacherLatch.countDown()
+                }
+            })
+        }
+
+        runCatching { teacherLatch.await(3, TimeUnit.SECONDS) }
+    }
+
+    private fun normalize(name: String): String {
+        var n = name.lowercase().trim()
+        val removePrefixes = listOf("8а_", "группа ", "2 группа ")
+        for (p in removePrefixes) {
+            if (n.startsWith(p)) n = n.removePrefix(p)
+        }
+        val removeWords = listOf("иностранный (", ") язык", " язык", " класс")
+        for (w in removeWords) {
+            n = n.replace(w, "")
+        }
+        return n.trim()
+    }
+
+    private fun findMatchingHomeworks(
+        homeworksForDate: List<HomeworkEntry>?,
+        subjectName: String
+    ): List<HomeworkEntry> {
+        if (homeworksForDate == null || homeworksForDate.isEmpty()) return emptyList()
+
+        val normLesson = normalize(subjectName)
+        val exact = homeworksForDate.filter { normalize(it.subject) == normLesson }
+        if (exact.isNotEmpty()) return exact
+
+        return homeworksForDate.filter {
+            val normHw = normalize(it.subject)
+            (normLesson.isNotEmpty() && normHw.isNotEmpty() && (normLesson.contains(normHw) || normHw.contains(normLesson))) ||
+            (subjectName.contains("английск", ignoreCase = true) && it.subject.contains("английск", ignoreCase = true)) ||
+            (subjectName.contains("физик", ignoreCase = true) && it.subject.contains("физик", ignoreCase = true))
+        }
     }
 
     private fun parseProfile(json: JSONObject): StudentProfile {
@@ -222,7 +414,8 @@ class ScheduleRepository(context: Context) {
 
     private fun parseEventsToWeekSchedule(
         json: JSONObject,
-        monday: LocalDate
+        monday: LocalDate,
+        homeworksByDate: Map<LocalDate, List<HomeworkEntry>>
     ): List<DaySchedule> {
         val russianLocale = Locale("ru", "RU")
         val eventsArray = json.optJSONArray("response") ?: JSONArray()
@@ -261,18 +454,13 @@ class ScheduleRepository(context: Context) {
                     subjectName.contains("контрольн", ignoreCase = true)
             val lessonTheme = eventObj.optString("lesson_theme").takeIf { it.isNotBlank() && it != "null" }
 
-            var homeworkText: String? = null
-            var homeworkCount = 0
-            if (eventObj.has("homework")) {
-                val hw = eventObj.get("homework")
-                if (hw is String && hw.isNotBlank() && hw != "null") {
-                    homeworkText = hw
-                    homeworkCount = 1
-                } else if (hw is JSONObject) {
-                    homeworkText = hw.optString("description").takeIf { it.isNotBlank() }
-                    homeworkCount = 1
-                }
-            }
+            // Match homeworks from mobile API
+            val matchingHws = findMatchingHomeworks(homeworksByDate[date], subjectName)
+            val homeworkCount = matchingHws.size
+            val homeworkText = matchingHws.firstOrNull()?.description?.takeIf { it.isNotBlank() }
+
+            // Resolve teacher from TeacherRepository
+            val teacherName = teacherRepository.getTeacher(subjectName)
 
             var grade: String? = null
             if (eventObj.has("marks")) {
@@ -298,14 +486,15 @@ class ScheduleRepository(context: Context) {
                 isReplaced = replaced,
                 theme = lessonTheme,
                 startDateTime = startDateTime,
-                endDateTime = endDateTime
+                endDateTime = endDateTime,
+                teacherName = teacherName
             )
 
             eventsByDate.getOrPut(date) { mutableListOf() }.add(lesson)
         }
 
         val today = LocalDate.now()
-        // 6 days: Monday through Saturday (matching mockup)
+        // 6 days: Monday through Saturday
         return (0..5).map { offset ->
             val date = monday.plusDays(offset.toLong())
             val dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, russianLocale)

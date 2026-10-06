@@ -26,16 +26,16 @@ class JwtDecoderTest {
 
     @Test
     fun testNameAndInitialsExtraction() {
-        // payload: {"sub":"100","first_name":"Иван","last_name":"Иванов"} -> eyJzdWIiOiIxMDAiLCJmaXJzdF9uYW1lIjoi0JjQstCw0L0iLCJsYXN0X25hbWUiOiLQmNCy0LDQvdC+0LIifQ
-        val token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMDAiLCJmaXJzdF9uYW1lIjoi0JjQstCw0L0iLCJsYXN0X25hbWUiOiLQmNCy0LDQvdC+0LIifQ.sig"
+        // payload: {"sub":"100","first_name":"Тест","last_name":"Пользователь"} -> eyJzdWIiOiIxMDAiLCJmaXJzdF9uYW1lIjoi0KLQtdGB0YIiLCJsYXN0X25hbWUiOiLQn9C-0LvRjNC30L7QstCw0YLQtdC70YwifQ
+        val token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMDAiLCJmaXJzdF9uYW1lIjoi0KLQtdGB0YIiLCJsYXN0X25hbWUiOiLQn9C-0LvRjNC30L7QstCw0YLQtdC70YwifQ.sig"
         val result = JwtDecoder.decode(token)
 
         assertTrue(result.isSuccess)
         val jwt = result.getOrThrow()
-        assertEquals("Иван", jwt.firstName)
-        assertEquals("Иванов", jwt.lastName)
-        assertEquals("Иванов Иван", jwt.displayName)
-        assertEquals("ИИ", jwt.initials)
+        assertEquals("Тест", jwt.firstName)
+        assertEquals("Пользователь", jwt.lastName)
+        assertEquals("Пользователь Тест", jwt.displayName)
+        assertEquals("ПТ", jwt.initials)
     }
 
     @Test

@@ -21,7 +21,8 @@ data class LessonItem(
     val isReplaced: Boolean = false,
     val theme: String? = null,
     val startDateTime: OffsetDateTime? = null,
-    val endDateTime: OffsetDateTime? = null
+    val endDateTime: OffsetDateTime? = null,
+    val teacherName: String? = null
 ) {
     val isCurrent: Boolean
         get() {

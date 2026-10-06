@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import koi.schoolmd.data.AuthSession
+import koi.schoolmd.data.HomeworkRepository
 import koi.schoolmd.data.ScheduleRepository
 import koi.schoolmd.data.StudentProfile
 
@@ -45,6 +46,7 @@ enum class MainTab(
 fun DashboardScreen(
     session: AuthSession,
     scheduleRepository: ScheduleRepository,
+    homeworkRepository: HomeworkRepository,
     onAvatarChanged: (String?) -> Unit,
     onNameChanged: (String?) -> Unit,
     onLogout: () -> Unit,
@@ -92,8 +94,6 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            android.util.Log.i("SchoolDebug", "TOKEN: ${session.token}")
-            android.util.Log.i("SchoolDebug", "SESSION: region=${session.region}, payload=${session.jwtData?.payloadJson}")
             when (selectedTab) {
                 MainTab.SCHEDULE -> {
                     ScheduleScreen(
@@ -106,7 +106,10 @@ fun DashboardScreen(
                     PlaceholderScreen(title = "Оценки", description = "Раздел оценок и четвертных баллов скоро будет доступен")
                 }
                 MainTab.HOMEWORK -> {
-                    PlaceholderScreen(title = "Задания", description = "Список домашних заданий и дедлайнов в разработке")
+                    HomeworkScreen(
+                        session = session,
+                        homeworkRepository = homeworkRepository
+                    )
                 }
                 MainTab.PROFILE -> {
                     ProfileScreen(
