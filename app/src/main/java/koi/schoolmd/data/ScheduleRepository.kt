@@ -494,8 +494,8 @@ class ScheduleRepository(
         }
 
         val today = LocalDate.now()
-        // 6 days: Monday through Saturday
-        return (0..5).map { offset ->
+        // 7 days: Monday through Sunday
+        return (0..6).map { offset ->
             val date = monday.plusDays(offset.toLong())
             val dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, russianLocale)
                 .replace(".", "")

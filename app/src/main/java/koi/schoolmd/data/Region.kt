@@ -23,10 +23,46 @@ enum class Region(
         tokenUrl = "https://authedu.mosreg.ru/v2/token/refresh?roleId=1&subsystem=2",
         tokenRefreshUrl = "https://authedu.mosreg.ru/v2/token/refresh?roleId=1&subsystem=2",
         apiHost = "authedu.mosreg.ru"
+    ),
+    TATARSTAN(
+        title = "Татарстан",
+        subtitle = "ms-edu.tatar.ru (Моя Школа РТ)",
+        loginPortalUrl = "https://ms-edu.tatar.ru/",
+        tokenUrl = "https://ms-edu.tatar.ru/v2/token/refresh?roleId=1&subsystem=2",
+        tokenRefreshUrl = "https://ms-edu.tatar.ru/v2/token/refresh?roleId=1&subsystem=2",
+        apiHost = "ms-edu.tatar.ru"
+    ),
+    TYUMEN(
+        title = "Тюменская область",
+        subtitle = "myschool.72to.ru (Моя Школа ТО)",
+        loginPortalUrl = "https://myschool.72to.ru/",
+        tokenUrl = "https://myschool.72to.ru/v2/token/refresh?roleId=1&subsystem=2",
+        tokenRefreshUrl = "https://myschool.72to.ru/v2/token/refresh?roleId=1&subsystem=2",
+        apiHost = "myschool.72to.ru"
+    ),
+    KALUGA(
+        title = "Калужская область",
+        subtitle = "education.admoblkaluga.ru (Моя Школа КО)",
+        loginPortalUrl = "https://education.admoblkaluga.ru/",
+        tokenUrl = "https://education.admoblkaluga.ru/v2/token/refresh?roleId=1&subsystem=2",
+        tokenRefreshUrl = "https://education.admoblkaluga.ru/v2/token/refresh?roleId=1&subsystem=2",
+        apiHost = "education.admoblkaluga.ru"
+    ),
+    DAGESTAN(
+        title = "Дагестан",
+        subtitle = "myschool.05edu.ru (Моя Школа РД)",
+        loginPortalUrl = "https://myschool.05edu.ru/",
+        tokenUrl = "https://myschool.05edu.ru/v2/token/refresh?roleId=1&subsystem=2",
+        tokenRefreshUrl = "https://myschool.05edu.ru/v2/token/refresh?roleId=1&subsystem=2",
+        apiHost = "myschool.05edu.ru"
     );
 
     companion object {
         fun fromName(name: String?): Region =
-            entries.firstOrNull { it.name == name } ?: MOSCOW
+            entries.firstOrNull {
+                it.name.equals(name, ignoreCase = true) ||
+                it.title.equals(name, ignoreCase = true) ||
+                it.apiHost.equals(name, ignoreCase = true)
+            } ?: MOSCOW_REGION
     }
 }

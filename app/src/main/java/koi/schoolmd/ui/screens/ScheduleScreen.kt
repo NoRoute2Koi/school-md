@@ -7,9 +7,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,14 +21,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
@@ -40,13 +41,12 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -55,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +69,8 @@ import koi.schoolmd.data.ScheduleRepository
 import koi.schoolmd.data.StudentProfile
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 @Composable
 fun ScheduleScreen(
@@ -77,27 +80,32 @@ fun ScheduleScreen(
     onProfileLoaded: ((StudentProfile) -> Unit)? = null
 ) {
     val coroutineScope = rememberCoroutineScope()
-    var anchorDate by remember { mutableStateOf(LocalDate.now()) }
+    val today = remember { LocalDate.now() }
+    var selectedDate by remember { mutableStateOf(today) }
+
     var weekSchedule by remember { mutableStateOf<List<DaySchedule>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    val today = remember { LocalDate.now() }
+    // Rolling ribbon of dates: 12 weeks before today to 12 weeks after today (25 weeks = 175 days)
+    val startMonday = remember(today) { today.minusWeeks(12).with(DayOfWeek.MONDAY) }
+    val allRibbonDays = remember(startMonday) { (0 until 25 * 7).map { startMonday.plusDays(it.toLong()) } }
+    val todayIndex = remember(allRibbonDays, today) { allRibbonDays.indexOf(today).coerceAtLeast(0) }
 
-    // Day selector index (0..5 for Mon..Sat)
-    var selectedDayIndex by remember {
-        val initialIdx = (today.dayOfWeek.value - 1).coerceIn(0, 5)
-        mutableIntStateOf(initialIdx)
-    }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = (todayIndex - 2).coerceAtLeast(0))
 
-    fun loadSchedule(force: Boolean = false) {
-        if (force) isRefreshing = true else isLoading = true
+    val currentMonday = remember(selectedDate) { selectedDate.with(DayOfWeek.MONDAY) }
+    val currentSunday = remember(currentMonday) { currentMonday.plusDays(6) }
+    val isSelectedToday = selectedDate == today
+
+    fun loadSchedule(monday: LocalDate, force: Boolean = false) {
+        if (force) isRefreshing = true else if (weekSchedule.isEmpty()) isLoading = true
         errorMessage = null
 
         scheduleRepository.fetchWeekSchedule(
             session = session,
-            anchorDate = anchorDate,
+            anchorDate = monday,
             forceRefresh = force
         ) { result ->
             isLoading = false
@@ -108,15 +116,28 @@ fun ScheduleScreen(
                     errorMessage = null
                 },
                 onFailure = { err ->
-                    errorMessage = err.localizedMessage ?: "Не удалось загрузить расписание"
+                    if (weekSchedule.isEmpty()) {
+                        errorMessage = err.localizedMessage ?: "Не удалось загрузить расписание"
+                    }
                 }
             )
         }
     }
 
-    // Trigger schedule load on anchorDate or session change
-    LaunchedEffect(anchorDate, session.token) {
-        loadSchedule(force = false)
+    // Trigger schedule load on currentMonday or session change
+    LaunchedEffect(currentMonday, session.token) {
+        loadSchedule(currentMonday, force = false)
+    }
+
+    // Auto-scroll ribbon to keep selectedDate in view
+    LaunchedEffect(selectedDate) {
+        val idx = allRibbonDays.indexOf(selectedDate)
+        if (idx >= 0) {
+            val visibleIndices = listState.layoutInfo.visibleItemsInfo.map { it.index }
+            if (idx !in visibleIndices) {
+                listState.animateScrollToItem((idx - 2).coerceAtLeast(0))
+            }
+        }
     }
 
     // Trigger profile fetch if profile or name not yet loaded
@@ -130,13 +151,7 @@ fun ScheduleScreen(
         }
     }
 
-    val monday = remember(anchorDate) { anchorDate.with(DayOfWeek.MONDAY) }
-    val saturday = remember(monday) { monday.plusDays(5) }
-    val isCurrentWeek = remember(monday, today) {
-        monday == today.with(DayOfWeek.MONDAY)
-    }
-
-    val currentDay = weekSchedule.getOrNull(selectedDayIndex)
+    val currentDay = weekSchedule.firstOrNull { it.date == selectedDate }
 
     Column(
         modifier = modifier
@@ -160,7 +175,7 @@ fun ScheduleScreen(
             )
 
             IconButton(
-                onClick = { loadSchedule(force = true) },
+                onClick = { loadSchedule(currentMonday, force = true) },
                 enabled = !isLoading && !isRefreshing
             ) {
                 if (isRefreshing) {
@@ -178,7 +193,7 @@ fun ScheduleScreen(
             }
         }
 
-        // Week Navigation Bar
+        // Week Navigation Header (NO ARROWS! Smooth scrollable ribbon instead)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -187,7 +202,7 @@ fun ScheduleScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = formatWeekRange(monday, saturday),
+                text = formatWeekRange(currentMonday, currentSunday),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
@@ -195,96 +210,144 @@ fun ScheduleScreen(
                 modifier = Modifier.weight(1f, fill = false)
             )
 
-            Spacer(Modifier.width(8.dp))
+            if (!isSelectedToday) {
+                FilledTonalButton(
+                    onClick = {
+                        selectedDate = today
+                        val idx = allRibbonDays.indexOf(today)
+                        if (idx >= 0) {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem((idx - 2).coerceAtLeast(0))
+                            }
+                        }
+                    },
+                    modifier = Modifier.height(30.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp)
+                ) {
+                    Text(
+                        text = "Сегодня",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+        }
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                if (!isCurrentWeek) {
-                    FilledTonalButton(
-                        onClick = {
-                            anchorDate = today
-                            selectedDayIndex = (today.dayOfWeek.value - 1).coerceIn(0, 5)
-                        },
-                        modifier = Modifier
-                            .height(30.dp)
-                            .padding(end = 4.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Text(
-                            text = "Сегодня",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(8.dp))
+
+        // Horizontally Scrollable Days Ribbon (влево-вправо)
+        LazyRow(
+            state = listState,
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items(allRibbonDays, key = { it.toString() }) { date ->
+                val isSelected = date == selectedDate
+                val isDateToday = date == today
+                val ruLocale = remember { Locale("ru", "RU") }
+                val dayName = date.dayOfWeek.getDisplayName(TextStyle.SHORT, ruLocale)
+                    .replace(".", "")
+                    .replaceFirstChar { it.uppercase() }
+
+                val bgColor by animateColorAsState(
+                    targetValue = when {
+                        isSelected -> MaterialTheme.colorScheme.primaryContainer
+                        isDateToday -> MaterialTheme.colorScheme.surfaceContainerHighest
+                        else -> Color.Transparent
+                    },
+                    label = "ribbonDayBg"
+                )
+                val textColor by animateColorAsState(
+                    targetValue = when {
+                        isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                        isDateToday -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    },
+                    label = "ribbonDayText"
+                )
+
+                Column(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(bgColor)
+                        .clickable {
+                            selectedDate = date
+                            val idx = allRibbonDays.indexOf(date)
+                            if (idx >= 0) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem((idx - 2).coerceAtLeast(0))
+                                }
+                            }
+                        }
+                        .padding(vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = dayName,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = if (isSelected || isDateToday) FontWeight.Bold else FontWeight.Medium
+                        ),
+                        color = textColor,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${date.dayOfMonth}",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
+                        ),
+                        color = textColor,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(4.dp))
+
+                    if (isDateToday) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary)
                         )
-                    }
-                }
-
-                IconButton(
-                    onClick = { anchorDate = anchorDate.minusWeeks(1) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Предыдущая неделя",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { anchorDate = anchorDate.plusWeeks(1) },
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Следующая неделя",
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(10.dp))
-
-        // Week Calendar Strip (Пн 1, Вт 2, ...)
-        if (weekSchedule.isNotEmpty()) {
-            WeekDaySelector(
-                days = weekSchedule,
-                selectedIndex = selectedDayIndex,
-                onDaySelected = { selectedDayIndex = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-            )
-        } else {
-            // Skeleton strip placeholder
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                val dayNames = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб")
-                dayNames.forEachIndexed { idx, name ->
-                    val date = monday.plusDays(idx.toLong())
-                    Column(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${date.dayOfMonth}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        Spacer(Modifier.height(5.dp))
                     }
                 }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // Content Area
+        // Content Area with swipe support
+        var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(selectedDate) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragAccumulator > 70f) {
+                                // Swiped right -> previous day
+                                val prev = selectedDate.minusDays(1)
+                                if (prev in allRibbonDays) {
+                                    selectedDate = prev
+                                }
+                            } else if (dragAccumulator < -70f) {
+                                // Swiped left -> next day
+                                val next = selectedDate.plusDays(1)
+                                if (next in allRibbonDays) {
+                                    selectedDate = next
+                                }
+                            }
+                            dragAccumulator = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            dragAccumulator += dragAmount
+                        }
+                    )
+                }
                 .padding(horizontal = 16.dp)
         ) {
             when {
@@ -341,7 +404,7 @@ fun ScheduleScreen(
                                 textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = { loadSchedule(force = true) }) {
+                            Button(onClick = { loadSchedule(currentMonday, force = true) }) {
                                 Text("Попробовать снова")
                             }
                         }
@@ -365,7 +428,21 @@ fun ScheduleScreen(
                         )
                         Spacer(Modifier.height(16.dp))
 
-                        if (allLessonsInWeek == 0) {
+                        if (selectedDate.dayOfWeek == DayOfWeek.SUNDAY) {
+                            Text(
+                                text = "Воскресенье — выходной",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = "Уроков нет, можно отдохнуть 🎉",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        } else if (allLessonsInWeek == 0) {
                             Text(
                                 text = "Каникулы или нет уроков",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
@@ -374,31 +451,24 @@ fun ScheduleScreen(
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "На этой неделе (${formatWeekRange(monday, saturday)}) занятия не запланированы.",
+                                text = "На этой неделе (${formatWeekRange(currentMonday, currentSunday)}) занятия не запланированы.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
-                            Spacer(Modifier.height(20.dp))
-                            FilledTonalButton(
-                                onClick = {
-                                    anchorDate = anchorDate.plusWeeks(1)
-                                    selectedDayIndex = 0
-                                }
-                            ) {
-                                Text("К следующей неделе →")
-                            }
                         } else {
                             Text(
                                 text = "На этот день уроков нет",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
                                 text = "Свободный день или выходной",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -423,72 +493,6 @@ fun ScheduleScreen(
                             }
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WeekDaySelector(
-    days: List<DaySchedule>,
-    selectedIndex: Int,
-    onDaySelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        days.forEachIndexed { index, day ->
-            val isSelected = index == selectedIndex
-            val bgColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                label = "dayBg"
-            )
-            val textColor by animateColorAsState(
-                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                label = "dayText"
-            )
-
-            Column(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(bgColor)
-                    .clickable { onDaySelected(index) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = day.dayName,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                    ),
-                    color = textColor,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "${day.dayNumber}",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Normal
-                    ),
-                    color = textColor,
-                    textAlign = TextAlign.Center
-                )
-
-                // Today indicator dot
-                if (day.isToday) {
-                    Spacer(Modifier.height(3.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(5.dp)
-                            .clip(CircleShape)
-                            .background(if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary)
-                    )
-                } else {
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -667,7 +671,7 @@ fun LessonCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // Footer: Homework info matching mockup
+            // Footer: Homework info
             if (lesson.homeworkCount > 0) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -710,7 +714,7 @@ fun LessonCard(
     }
 }
 
-private fun formatWeekRange(monday: LocalDate, saturday: LocalDate): String {
+private fun formatWeekRange(monday: LocalDate, sunday: LocalDate): String {
     val fullMonths = listOf(
         "января", "февраля", "марта", "апреля", "мая", "июня",
         "июля", "августа", "сентября", "октября", "ноября", "декабря"
@@ -719,9 +723,9 @@ private fun formatWeekRange(monday: LocalDate, saturday: LocalDate): String {
         "янв", "фев", "мар", "апр", "мая", "июн",
         "июл", "авг", "сен", "окт", "ноя", "дек"
     )
-    return if (monday.monthValue == saturday.monthValue) {
-        "${monday.dayOfMonth} – ${saturday.dayOfMonth} ${fullMonths[monday.monthValue - 1]}"
+    return if (monday.monthValue == sunday.monthValue) {
+        "${monday.dayOfMonth} – ${sunday.dayOfMonth} ${fullMonths[monday.monthValue - 1]}"
     } else {
-        "${monday.dayOfMonth} ${shortMonths[monday.monthValue - 1]} – ${saturday.dayOfMonth} ${shortMonths[saturday.monthValue - 1]}"
+        "${monday.dayOfMonth} ${shortMonths[monday.monthValue - 1]} – ${sunday.dayOfMonth} ${shortMonths[sunday.monthValue - 1]}"
     }
 }
