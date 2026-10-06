@@ -12,6 +12,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import ru.school.app.data.AuthRepository
 import ru.school.app.data.AuthSession
+import ru.school.app.data.Region
+import ru.school.app.data.ScheduleRepository
 import ru.school.app.ui.screens.DashboardScreen
 import ru.school.app.ui.screens.LoginScreen
 import ru.school.app.ui.theme.SchoolTheme
@@ -19,6 +21,7 @@ import ru.school.app.ui.theme.SchoolTheme
 class MainActivity : ComponentActivity() {
 
     private lateinit var authRepository: AuthRepository
+    private lateinit var scheduleRepository: ScheduleRepository
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,10 +29,31 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         authRepository = AuthRepository(applicationContext)
+        scheduleRepository = ScheduleRepository(applicationContext)
+
+        intent.getStringExtra("token")?.takeIf { it.isNotBlank() }?.let { intentToken ->
+            val regName = intent.getStringExtra("region")
+            val reg = if (regName != null) Region.fromName(regName) else Region.MOSCOW_REGION
+            authRepository.saveSession(reg, intentToken)
+        }
 
         setContent {
             var currentSession by remember {
                 mutableStateOf(authRepository.getSession())
+            }
+
+            androidx.compose.runtime.LaunchedEffect(currentSession?.token) {
+                val sess = currentSession
+                if (sess != null && sess.studentProfile == null) {
+                    scheduleRepository.fetchProfile(sess) { result ->
+                        result.onSuccess { profile ->
+                            authRepository.saveStudentProfile(profile)
+                            mainHandler.post {
+                                currentSession = authRepository.getSession()
+                            }
+                        }
+                    }
+                }
             }
 
             SchoolTheme {
@@ -37,6 +61,7 @@ class MainActivity : ComponentActivity() {
                 if (session != null) {
                     DashboardScreen(
                         session = session,
+                        scheduleRepository = scheduleRepository,
                         onAvatarChanged = { uri ->
                             authRepository.saveCustomAvatar(uri)
                             currentSession = authRepository.getSession()
@@ -57,6 +82,12 @@ class MainActivity : ComponentActivity() {
                                     }
                                     callback(result)
                                 }
+                            }
+                        },
+                        onProfileLoaded = { profile ->
+                            authRepository.saveStudentProfile(profile)
+                            mainHandler.post {
+                                currentSession = authRepository.getSession()
                             }
                         }
                     )

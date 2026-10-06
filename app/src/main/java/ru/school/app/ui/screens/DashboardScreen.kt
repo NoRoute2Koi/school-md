@@ -28,6 +28,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import ru.school.app.data.AuthSession
+import ru.school.app.data.ScheduleRepository
+import ru.school.app.data.StudentProfile
 
 enum class MainTab(
     val title: String,
@@ -42,10 +44,12 @@ enum class MainTab(
 @Composable
 fun DashboardScreen(
     session: AuthSession,
+    scheduleRepository: ScheduleRepository,
     onAvatarChanged: (String?) -> Unit,
     onNameChanged: (String?) -> Unit,
     onLogout: () -> Unit,
-    onRefreshToken: ((Result<String>) -> Unit) -> Unit
+    onRefreshToken: ((Result<String>) -> Unit) -> Unit,
+    onProfileLoaded: ((StudentProfile) -> Unit)? = null
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SCHEDULE) }
 
@@ -88,9 +92,15 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+            android.util.Log.i("SchoolDebug", "TOKEN: ${session.token}")
+            android.util.Log.i("SchoolDebug", "SESSION: region=${session.region}, payload=${session.jwtData?.payloadJson}")
             when (selectedTab) {
                 MainTab.SCHEDULE -> {
-                    ScheduleScreen()
+                    ScheduleScreen(
+                        session = session,
+                        scheduleRepository = scheduleRepository,
+                        onProfileLoaded = onProfileLoaded
+                    )
                 }
                 MainTab.MARKS -> {
                     PlaceholderScreen(title = "Оценки", description = "Раздел оценок и четвертных баллов скоро будет доступен")

@@ -14,7 +14,8 @@ data class JwtData(
     val lastName: String?,
     val middleName: String?,
     val avatarUrl: String?,
-    val payloadJson: String
+    val payloadJson: String,
+    val contingentGuid: String? = null
 ) {
     val isExpired: Boolean
         get() {
@@ -102,6 +103,10 @@ object JwtDecoder {
             ?: profileObj?.optStringOrNull("avatar_url")
             ?: profileObj?.optStringOrNull("avatar")
 
+        val contingentGuid = json.optStringOrNull("msh")
+            ?: json.optStringOrNull("contingent_guid")
+            ?: profileObj?.optStringOrNull("contingent_guid")
+
         JwtData(
             rawToken = trimmed,
             subject = subject,
@@ -112,7 +117,8 @@ object JwtDecoder {
             lastName = lastName,
             middleName = middleName,
             avatarUrl = avatarUrl,
-            payloadJson = payloadStr
+            payloadJson = payloadStr,
+            contingentGuid = contingentGuid
         )
     }
 

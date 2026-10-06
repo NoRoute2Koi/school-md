@@ -18,10 +18,14 @@ data class AuthSession(
     val token: String,
     val jwtData: JwtData?,
     val customAvatarUri: String? = null,
-    val customName: String? = null
+    val customName: String? = null,
+    val studentProfile: StudentProfile? = null
 ) {
     val effectiveDisplayName: String
-        get() = customName?.takeIf { it.isNotBlank() } ?: jwtData?.displayName ?: "Пользователь"
+        get() = customName?.takeIf { it.isNotBlank() }
+            ?: studentProfile?.fullName
+            ?: jwtData?.displayName
+            ?: "Пользователь"
 
     val effectiveAvatarUri: String?
         get() = customAvatarUri ?: jwtData?.avatarUrl
@@ -57,7 +61,8 @@ class AuthRepository(context: Context) {
         val jwt = JwtDecoder.decode(token).getOrNull()
         val customAvatar = prefs.getString(KEY_AVATAR, null)
         val customName = prefs.getString(KEY_CUSTOM_NAME, null)
-        return AuthSession(region, token, jwt, customAvatar, customName)
+        val studentProfile = getSavedStudentProfile()
+        return AuthSession(region, token, jwt, customAvatar, customName, studentProfile)
     }
 
     fun saveSession(region: Region, token: String): AuthSession {
@@ -69,7 +74,8 @@ class AuthRepository(context: Context) {
         val jwt = JwtDecoder.decode(token).getOrNull()
         val customAvatar = prefs.getString(KEY_AVATAR, null)
         val customName = prefs.getString(KEY_CUSTOM_NAME, null)
-        return AuthSession(region, token, jwt, customAvatar, customName)
+        val studentProfile = getSavedStudentProfile()
+        return AuthSession(region, token, jwt, customAvatar, customName, studentProfile)
     }
 
     fun saveCustomAvatar(uriString: String?) {
@@ -84,12 +90,42 @@ class AuthRepository(context: Context) {
         }.apply()
     }
 
+    fun saveStudentProfile(profile: StudentProfile) {
+        prefs.edit()
+            .putString("saved_prof_first_name", profile.firstName)
+            .putString("saved_prof_last_name", profile.lastName)
+            .putString("saved_prof_middle_name", profile.middleName)
+            .putString("saved_prof_class_name", profile.className)
+            .putString("saved_prof_school_name", profile.schoolName)
+            .putString("saved_prof_guid", profile.contingentGuid)
+            .putLong("saved_prof_student_id", profile.studentId ?: -1L)
+            .apply()
+    }
+
+    fun getSavedStudentProfile(): StudentProfile? {
+        val first = prefs.getString("saved_prof_first_name", null) ?: return null
+        val last = prefs.getString("saved_prof_last_name", null) ?: ""
+        val middle = prefs.getString("saved_prof_middle_name", null)
+        val clazz = prefs.getString("saved_prof_class_name", null)
+        val school = prefs.getString("saved_prof_school_name", null)
+        val guid = prefs.getString("saved_prof_guid", null)
+        val sId = prefs.getLong("saved_prof_student_id", -1L).takeIf { it != -1L }
+        return StudentProfile(first, last, middle, clazz, school, guid, sId)
+    }
+
     fun clearSession() {
         prefs.edit()
             .remove(KEY_TOKEN)
             .remove(KEY_REGION)
             .remove(KEY_AVATAR)
             .remove(KEY_CUSTOM_NAME)
+            .remove("saved_prof_first_name")
+            .remove("saved_prof_last_name")
+            .remove("saved_prof_middle_name")
+            .remove("saved_prof_class_name")
+            .remove("saved_prof_school_name")
+            .remove("saved_prof_guid")
+            .remove("saved_prof_student_id")
             .apply()
     }
 

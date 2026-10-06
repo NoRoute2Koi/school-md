@@ -169,8 +169,14 @@ fun ProfileScreen(
                     contentScale = ContentScale.Crop
                 )
             } else {
+                val avatarInitials = session.studentProfile?.let { prof ->
+                    val l = prof.lastName.firstOrNull()?.uppercaseChar()
+                    val f = prof.firstName.firstOrNull()?.uppercaseChar()
+                    if (l != null && f != null) "$l$f" else if (f != null) "$f" else null
+                } ?: session.jwtData?.initials ?: "МШ"
+
                 Text(
-                    text = session.jwtData?.initials ?: "МШ",
+                    text = avatarInitials,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 32.sp
@@ -266,6 +272,20 @@ fun ProfileScreen(
                 ) {
                     Text("Регион", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(session.region.title, fontWeight = FontWeight.Medium)
+                }
+
+                session.studentProfile?.schoolInfo?.let { schoolInfo ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Школа", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = schoolInfo,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
+                    }
                 }
 
                 session.jwtData?.let { jwt ->
