@@ -2,13 +2,19 @@
 
 ## Completed
 - [x] Initialize Git repository (`main` branch)
+- [x] Setup Android Gradle project with Kotlin, Jetpack Compose, Material 3 Expressive
+- [x] Implement native JWT parser (`JwtDecoder`) and unit tests
+- [x] Implement Secure Auth storage (`AuthRepository`) with EncryptedSharedPreferences
+- [x] Implement Moscow & Moscow Region authentication flow:
+  - WebView OAuth/SSO interceptor (`WebAuthDialog`)
+  - Direct JWT token input and real-time validation
+  - Region selector & dashboard with token status & refresh check
+- [x] Assemble debug APK
 
 ## In Progress
-- [ ] Initialize Android project skeleton (Kotlin, Jetpack Compose, Material 3 Expressive)
-- [ ] Implement Auth flow for Moscow (`school.mos.ru`) and Moscow Region (`authedu.mosreg.ru`)
+- [ ] Device verification and API endpoint integration for diary/marks
 
 ## Backlog / Future
-- [ ] Secure token storage (EncryptedSharedPreferences / DataStore)
-- [ ] Diary & grades API integration (MOS / Mosreg)
-- [ ] Schedule and marks UI (Material 3 Expressive)
+- [ ] Diary schedule & marks API integration (MOS / Mosreg)
+- [ ] Material 3 Expressive Diary & Marks UI
 - [ ] Support additional regions from `PROJECT.md` (Kaluga, Tyumen, Tatarstan, Dagestan)
