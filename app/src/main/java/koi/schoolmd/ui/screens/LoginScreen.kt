@@ -1,4 +1,4 @@
-package ru.school.app.ui.screens
+package koi.schoolmd.ui.screens
 
 import android.content.ClipboardManager
 import android.content.Context
@@ -56,8 +56,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import ru.school.app.data.JwtDecoder
-import ru.school.app.data.Region
+import koi.schoolmd.data.JwtDecoder
+import koi.schoolmd.data.Region
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -97,7 +97,7 @@ fun LoginScreen(
                         )
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "Моя Школа",
+                            text = "schoolmd",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }

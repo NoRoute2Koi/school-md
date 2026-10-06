@@ -1,4 +1,4 @@
-package ru.school.app.data
+package koi.schoolmd.data
 
 import java.time.DayOfWeek
 import java.time.LocalDate

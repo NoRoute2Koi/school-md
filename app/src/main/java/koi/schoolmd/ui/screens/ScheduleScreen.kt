@@ -1,4 +1,4 @@
-package ru.school.app.ui.screens
+package koi.schoolmd.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -59,11 +59,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import ru.school.app.data.AuthSession
-import ru.school.app.data.DaySchedule
-import ru.school.app.data.LessonItem
-import ru.school.app.data.ScheduleRepository
-import ru.school.app.data.StudentProfile
+import koi.schoolmd.data.AuthSession
+import koi.schoolmd.data.DaySchedule
+import koi.schoolmd.data.LessonItem
+import koi.schoolmd.data.ScheduleRepository
+import koi.schoolmd.data.StudentProfile
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -141,7 +141,7 @@ fun ScheduleScreen(
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Top Header: Моя Школа + Refresh
+        // Top Header: schoolmd + Refresh
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -150,7 +150,7 @@ fun ScheduleScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Моя Школа",
+                text = "schoolmd",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = (-0.5).sp

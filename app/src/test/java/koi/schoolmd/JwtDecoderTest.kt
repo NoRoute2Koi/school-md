@@ -1,10 +1,10 @@
-package ru.school.app
+package koi.schoolmd
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import ru.school.app.data.JwtDecoder
+import koi.schoolmd.data.JwtDecoder
 
 class JwtDecoderTest {
 

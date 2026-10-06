@@ -1,4 +1,4 @@
-package ru.school.app.data
+package koi.schoolmd.data
 
 import android.content.Context
 import android.content.SharedPreferences

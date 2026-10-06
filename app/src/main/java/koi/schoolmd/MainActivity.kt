@@ -1,4 +1,4 @@
-package ru.school.app
+package koi.schoolmd
 
 import android.os.Bundle
 import android.os.Handler
@@ -10,13 +10,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import ru.school.app.data.AuthRepository
-import ru.school.app.data.AuthSession
-import ru.school.app.data.Region
-import ru.school.app.data.ScheduleRepository
-import ru.school.app.ui.screens.DashboardScreen
-import ru.school.app.ui.screens.LoginScreen
-import ru.school.app.ui.theme.SchoolTheme
+import koi.schoolmd.data.AuthRepository
+import koi.schoolmd.data.AuthSession
+import koi.schoolmd.data.Region
+import koi.schoolmd.data.ScheduleRepository
+import koi.schoolmd.ui.screens.DashboardScreen
+import koi.schoolmd.ui.screens.LoginScreen
+import koi.schoolmd.ui.theme.SchoolTheme
 
 class MainActivity : ComponentActivity() {
 

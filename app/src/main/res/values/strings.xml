@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Моя Школа</string>
+    <string name="app_name">schoolmd</string>
+    <string name="app_version">0.1.0 Beta</string>
 </resources>

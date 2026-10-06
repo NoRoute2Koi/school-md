@@ -1,4 +1,4 @@
-package ru.school.app.ui.screens
+package koi.schoolmd.ui.screens
 
 import android.graphics.BitmapFactory
 import android.net.Uri
@@ -62,7 +62,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import ru.school.app.data.AuthSession
+import koi.schoolmd.data.AuthSession
 
 @Composable
 fun ProfileScreen(
@@ -424,6 +424,14 @@ fun ProfileScreen(
             Spacer(Modifier.width(8.dp))
             Text("Выйти из аккаунта", color = MaterialTheme.colorScheme.error)
         }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "schoolmd • Версия 0.1.0 Beta",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+        )
 
         Spacer(Modifier.height(16.dp))
     }

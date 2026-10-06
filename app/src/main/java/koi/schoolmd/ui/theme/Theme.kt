@@ -1,4 +1,4 @@
-package ru.school.app.ui.theme
+package koi.schoolmd.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme

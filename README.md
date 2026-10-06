@@ -1,4 +1,6 @@
-# SchoolMD
+# schoolmd
+
+> **Версия:** 0.1.0 Beta
 
 Быстрый и легковесный FOSS-клиент для образовательных платформ **«Моя Школа»** (МЭШ / school.mos.ru, Моя Школа МО / authedu.mosreg.ru), выполненный в дизайн-системе **Material 3 Expressive (MD3E)**.
 

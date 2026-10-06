@@ -1,4 +1,4 @@
-package ru.school.app.data
+package koi.schoolmd.data
 
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets

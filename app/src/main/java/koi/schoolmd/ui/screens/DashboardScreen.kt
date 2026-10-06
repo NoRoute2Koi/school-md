@@ -1,4 +1,4 @@
-package ru.school.app.ui.screens
+package koi.schoolmd.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
@@ -27,9 +27,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import ru.school.app.data.AuthSession
-import ru.school.app.data.ScheduleRepository
-import ru.school.app.data.StudentProfile
+import koi.schoolmd.data.AuthSession
+import koi.schoolmd.data.ScheduleRepository
+import koi.schoolmd.data.StudentProfile
 
 enum class MainTab(
     val title: String,

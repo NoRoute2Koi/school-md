@@ -1,4 +1,4 @@
-package ru.school.app
+package koi.schoolmd
 
 import org.json.JSONArray
 import org.json.JSONObject
@@ -7,7 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import ru.school.app.data.LessonItem
+import koi.schoolmd.data.LessonItem
 import java.time.LocalDate
 import java.time.OffsetDateTime
 

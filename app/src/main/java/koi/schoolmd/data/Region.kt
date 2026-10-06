@@ -1,4 +1,4 @@
-package ru.school.app.data
+package koi.schoolmd.data
 
 enum class Region(
     val title: String,
