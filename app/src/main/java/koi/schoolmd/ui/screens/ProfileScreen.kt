@@ -59,6 +59,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import koi.schoolmd.R
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -451,7 +453,7 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "schoolmd • Версия 0.1.0 Beta",
+                text = "schoolmd • Версия ${stringResource(R.string.app_version)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )

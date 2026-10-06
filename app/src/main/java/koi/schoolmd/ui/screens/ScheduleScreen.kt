@@ -437,14 +437,14 @@ fun ScheduleScreen(
                             )
                             Spacer(Modifier.height(6.dp))
                             Text(
-                                text = "Уроков нет, можно отдохнуть 🎉",
+                                text = "Уроков нет, можно отдохнуть :3",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
                             )
                         } else if (allLessonsInWeek == 0) {
                             Text(
-                                text = "Каникулы или нет уроков",
+                                text = "Тут пусто, Каникулы либо нет уроков",
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 textAlign = TextAlign.Center
