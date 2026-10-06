@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import koi.schoolmd.data.AuthSession
 import koi.schoolmd.data.HomeworkRepository
+import koi.schoolmd.data.MarksRepository
 import koi.schoolmd.data.ScheduleRepository
 import koi.schoolmd.data.StudentProfile
 
@@ -47,6 +48,7 @@ fun DashboardScreen(
     session: AuthSession,
     scheduleRepository: ScheduleRepository,
     homeworkRepository: HomeworkRepository,
+    marksRepository: MarksRepository,
     onAvatarChanged: (String?) -> Unit,
     onNameChanged: (String?) -> Unit,
     onLogout: () -> Unit,
@@ -103,7 +105,10 @@ fun DashboardScreen(
                     )
                 }
                 MainTab.MARKS -> {
-                    PlaceholderScreen(title = "Оценки", description = "Раздел оценок и четвертных баллов скоро будет доступен")
+                    MarksScreen(
+                        session = session,
+                        marksRepository = marksRepository
+                    )
                 }
                 MainTab.HOMEWORK -> {
                     HomeworkScreen(
