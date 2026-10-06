@@ -31,6 +31,11 @@
 - [x] Support regional endpoints (Moscow, Mosreg, Kaluga, Tyumen, Tatarstan, Dagestan)
 - [x] UI/UX polish across Schedule, Marks, and Profile screens (spacing, ribbon days, developer footer)
 - [x] Comprehensive repository privacy audit: sanitized test mocks, purged reflog, ensured zero personal data
+- [x] Implement Material 3 Expressive sliding modal bottom sheets (ModalBottomSheet) matching mockup:
+  - Tapping lesson in Schedule screen opens Lesson Detail sheet (subject, time, teacher, classroom, homework, copy action)
+  - Tapping mark in Marks screen (by date or by subject) opens Mark Detail sheet (score, control form, weight, exam/point status, teacher comment)
+  - Tapping subject card in Marks screen opens Subject Summary sheet with period averages and interactive mark breakdown
+  - Tapping card in Homework screen opens Homework Detail sheet (subject, due date, full description, materials, toggle completion action)
 
 ## In Progress
 - [ ] Ready for testing and release v0.3.3 / subsequent features

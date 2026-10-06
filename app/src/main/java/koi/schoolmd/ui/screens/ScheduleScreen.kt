@@ -67,6 +67,23 @@ import koi.schoolmd.data.DaySchedule
 import koi.schoolmd.data.LessonItem
 import koi.schoolmd.data.ScheduleRepository
 import koi.schoolmd.data.StudentProfile
+import android.widget.Toast
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.automirrored.outlined.Subject
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import koi.schoolmd.data.TeacherRepository
+import koi.schoolmd.ui.components.DetailCard
+import koi.schoolmd.ui.components.DetailRow
+import koi.schoolmd.ui.components.SheetHeader
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -87,6 +104,7 @@ fun ScheduleScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedLessonForDetail by remember { mutableStateOf<LessonItem?>(null) }
 
     // Rolling ribbon of dates: 12 weeks before today to 12 weeks after today (25 weeks = 175 days)
     val startMonday = remember(today) { today.minusWeeks(12).with(DayOfWeek.MONDAY) }
@@ -485,7 +503,10 @@ fun ScheduleScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(targetDay.lessons, key = { it.id }) { lesson ->
-                                LessonCard(lesson = lesson)
+                                LessonCard(
+                                    lesson = lesson,
+                                    onClick = { selectedLessonForDetail = lesson }
+                                )
                             }
 
                             item {
@@ -497,14 +518,23 @@ fun ScheduleScreen(
             }
         }
     }
+
+    selectedLessonForDetail?.let { lesson ->
+        LessonDetailBottomSheet(
+            lesson = lesson,
+            onDismiss = { selectedLessonForDetail = null }
+        )
+    }
 }
 
 @Composable
 fun LessonCard(
     lesson: LessonItem,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
@@ -729,3 +759,181 @@ private fun formatWeekRange(monday: LocalDate, sunday: LocalDate): String {
         "${monday.dayOfMonth} ${shortMonths[monday.monthValue - 1]} – ${sunday.dayOfMonth} ${shortMonths[sunday.monthValue - 1]}"
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LessonDetailBottomSheet(
+    lesson: LessonItem,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    val teacherName = lesson.teacherName ?: remember(lesson.subject) {
+        TeacherRepository(context).getTeacher(lesson.subject)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SheetHeader(
+                title = lesson.subject,
+                subtitle = "Урок ${lesson.lessonNumber} • ${lesson.startTime} – ${lesson.endTime}",
+                badgeContent = {
+                    if (lesson.isCurrent) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Text(
+                                text = "● Идёт сейчас",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (lesson.isExam) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            Text(
+                                text = "КР / Экзамен",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (lesson.isReplaced) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ) {
+                            Text(
+                                text = "Замена",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (lesson.isCancelled) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ) {
+                            Text(
+                                text = "Отменён",
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (lesson.grade != null) {
+                        val gradeColor = when (lesson.grade) {
+                            "5" -> Color(0xFF2E7D32)
+                            "4" -> MaterialTheme.colorScheme.primary
+                            "3" -> Color(0xFFE65100)
+                            else -> MaterialTheme.colorScheme.error
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = gradeColor,
+                            contentColor = Color.White
+                        ) {
+                            Text(
+                                text = "Оценка: ${lesson.grade}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            DetailCard {
+                DetailRow(
+                    icon = Icons.Outlined.School,
+                    label = "Кабинет",
+                    value = if (lesson.classroom.isNotBlank()) lesson.classroom else "Не указан"
+                )
+
+                DetailRow(
+                    icon = Icons.Outlined.Person,
+                    label = "Преподаватель",
+                    value = teacherName ?: "Не указан"
+                )
+
+                if (!lesson.theme.isNullOrBlank()) {
+                    DetailRow(
+                        icon = Icons.AutoMirrored.Outlined.Subject,
+                        label = "Тема урока",
+                        value = lesson.theme
+                    )
+                }
+
+                val count = lesson.homeworkCount
+                val hwValue = when {
+                    !lesson.homework.isNullOrBlank() -> lesson.homework
+                    count > 0 -> "Есть $count зад. (см. во вкладке «Задания»)"
+                    else -> "Не задано"
+                }
+                DetailRow(
+                    icon = Icons.AutoMirrored.Outlined.Assignment,
+                    label = "Домашнее задание",
+                    value = hwValue
+                )
+            }
+
+            if (!lesson.homework.isNullOrBlank()) {
+                Spacer(Modifier.height(14.dp))
+                FilledTonalButton(
+                    onClick = {
+                        clipboardManager.setText(AnnotatedString(lesson.homework))
+                        Toast.makeText(context, "Задание скопировано", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Скопировать домашнее задание")
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Закрыть")
+            }
+        }
+    }
+}
+

@@ -17,8 +17,8 @@ class ScheduleParserTest {
     fun testEventParsingAndCurrentStatus() {
         val sampleEventJson = """
             {
-              "id": 209328143,
-              "source_id": "209328143",
+              "id": 100000001,
+              "source_id": "100000001",
               "source": "PLAN",
               "start_at": "2026-10-12T09:20:00+03:00",
               "finish_at": "2026-10-12T10:00:00+03:00",
@@ -26,9 +26,9 @@ class ScheduleParserTest {
               "lesson_type": "NORMAL",
               "course_lesson_type": null,
               "replaced": false,
-              "room_name": "Биология, география",
-              "room_number": "41",
-              "subject_id": 33623636,
+              "room_name": "Кабинет биологии",
+              "room_number": "101",
+              "subject_id": 10001,
               "subject_name": "Биология",
               "homework": "§5 читать",
               "marks": null
@@ -44,7 +44,7 @@ class ScheduleParserTest {
             lessonNumber = 1,
             startTime = "09:20",
             endTime = "10:00",
-            classroom = "41 каб",
+            classroom = "101 каб",
             subject = json.getString("subject_name"),
             homework = json.optString("homework"),
             homeworkCount = 1,
@@ -57,9 +57,9 @@ class ScheduleParserTest {
             endDateTime = finish
         )
 
-        assertEquals("209328143", lesson.id)
+        assertEquals("100000001", lesson.id)
         assertEquals("Биология", lesson.subject)
-        assertEquals("41 каб", lesson.classroom)
+        assertEquals("101 каб", lesson.classroom)
         assertEquals("§5 читать", lesson.homework)
         assertFalse(lesson.isCancelled)
         assertFalse(lesson.isExam)
@@ -72,7 +72,7 @@ class ScheduleParserTest {
             lessonNumber = 2,
             startTime = "10:20",
             endTime = "11:00",
-            classroom = "27 каб",
+            classroom = "102 каб",
             subject = "Алгебра",
             isExam = true,
             isReplaced = true

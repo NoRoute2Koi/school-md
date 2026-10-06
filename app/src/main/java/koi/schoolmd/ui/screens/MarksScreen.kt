@@ -25,14 +25,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.Comment
+import androidx.compose.material.icons.automirrored.outlined.FactCheck
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.EventBusy
 import androidx.compose.material.icons.outlined.Grade
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Scale
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -40,9 +48,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import koi.schoolmd.ui.components.DetailCard
+import koi.schoolmd.ui.components.DetailRow
+import koi.schoolmd.ui.components.SheetHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -265,20 +278,24 @@ fun MarksScreen(
         }
     }
 
-    // Detail Dialog for Mark
+    // Detail Bottom Sheet for Mark (by date or by subject)
     selectedMarkForDetail?.let { mark ->
-        MarkDetailDialog(
+        MarkDetailBottomSheet(
             mark = mark,
             onDismiss = { selectedMarkForDetail = null }
         )
     }
 
-    // Detail Dialog for Subject Summary
+    // Detail Bottom Sheet for Subject Summary
     selectedSummaryForDetail?.let { summary ->
-        SubjectSummaryDetailDialog(
+        SubjectSummaryDetailBottomSheet(
             summary = summary,
             subjectMarks = allMarks.filter { it.subject == summary.subjectName },
-            onDismiss = { selectedSummaryForDetail = null }
+            onDismiss = { selectedSummaryForDetail = null },
+            onMarkClick = { mark ->
+                selectedSummaryForDetail = null
+                selectedMarkForDetail = mark
+            }
         )
     }
 }
@@ -862,210 +879,282 @@ private fun SubjectSummaryRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MarkDetailDialog(
+private fun MarkDetailBottomSheet(
     mark: MarkItem,
     onDismiss: () -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val (badgeBg, badgeText) = getMarkColors(mark.value)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Закрыть")
-            }
-        },
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(badgeBg),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = mark.value,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                        color = badgeText
-                    )
-                }
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SheetHeader(
+                title = mark.subject,
+                subtitle = formatDetailedDate(mark.date),
+                badgeContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(badgeBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = mark.value,
+                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                            color = badgeText
+                        )
+                    }
 
-                Column {
-                    Text(
-                        text = mark.subject,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = formatDetailedDate(mark.date),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (mark.weight > 1) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Text(
+                                text = "Вес: ×${mark.weight}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+
+                    if (mark.isExam) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ) {
+                            Text(
+                                text = "КР / Экзамен",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
+
+                    if (mark.isPoint) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ) {
+                            Text(
+                                text = "Точка",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
+                        }
+                    }
                 }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                DetailItem(
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            DetailCard {
+                DetailRow(
+                    icon = Icons.AutoMirrored.Outlined.FactCheck,
                     label = "Форма контроля",
                     value = mark.controlFormName.ifBlank { "Текущая оценка" }
                 )
 
-                DetailItem(
+                DetailRow(
+                    icon = Icons.Outlined.Scale,
                     label = "Вес оценки",
                     value = if (mark.weight > 1) "×${mark.weight} (влияет на средний балл с коэффициентом ${mark.weight})" else "1"
                 )
 
                 if (mark.isExam) {
-                    DetailItem(
+                    DetailRow(
+                        icon = Icons.AutoMirrored.Outlined.Assignment,
                         label = "Тип работы",
                         value = "Контрольная работа / Экзамен"
                     )
                 }
 
                 if (mark.isPoint) {
-                    DetailItem(
+                    DetailRow(
+                        icon = Icons.Outlined.WarningAmber,
                         label = "Статус",
                         value = "Точка (требуется сдать задолженность)"
                     )
                 }
 
                 if (!mark.comment.isNullOrBlank()) {
-                    DetailItem(
-                        label = "Комментарий",
+                    DetailRow(
+                        icon = Icons.AutoMirrored.Outlined.Comment,
+                        label = "Комментарий учителя",
                         value = mark.comment
                     )
                 }
 
                 if (!mark.teacherName.isNullOrBlank()) {
-                    DetailItem(
-                        label = "Учитель",
+                    DetailRow(
+                        icon = Icons.Outlined.Person,
+                        label = "Преподаватель",
                         value = mark.teacherName
                     )
                 }
             }
+
+            Spacer(Modifier.height(18.dp))
+
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Закрыть")
+            }
         }
-    )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SubjectSummaryDetailDialog(
+private fun SubjectSummaryDetailBottomSheet(
     summary: SubjectMarksSummary,
     subjectMarks: List<MarkItem>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMarkClick: (MarkItem) -> Unit
 ) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val avgScore = summary.averageMark
     val (badgeBg, badgeText) = getMarkColors(avgScore?.take(1).orEmpty())
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Закрыть")
-            }
-        },
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (avgScore != null) badgeBg else MaterialTheme.colorScheme.surfaceContainerHighest),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = avgScore ?: "—",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = if (avgScore != null) badgeText else MaterialTheme.colorScheme.outline
-                    )
-                }
+        sheetState = sheetState,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            SheetHeader(
+                title = summary.subjectName,
+                subtitle = summary.periodTitle ?: "Текущий период",
+                badgeContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (avgScore != null) badgeBg else MaterialTheme.colorScheme.surfaceContainerHighest),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = avgScore ?: "—",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            color = if (avgScore != null) badgeText else MaterialTheme.colorScheme.outline
+                        )
+                    }
 
-                Column {
-                    Text(
-                        text = summary.subjectName,
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Text(
-                        text = summary.periodTitle ?: "Период",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val c = summary.marksCount
+                    val countText = when {
+                        c % 10 == 1 && c % 100 != 11 -> "$c оценка"
+                        c % 10 in 2..4 && c % 100 !in 12..14 -> "$c оценки"
+                        else -> "$c оценок"
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest
+                    ) {
+                        Text(
+                            text = countText,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
                 }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                DetailItem(
-                    label = "Средний балл",
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            DetailCard {
+                DetailRow(
+                    icon = Icons.Outlined.Grade,
+                    label = "Средний балл за период",
                     value = summary.averageMark ?: "Нет данных"
                 )
-                DetailItem(
+
+                DetailRow(
+                    icon = Icons.Outlined.Assessment,
                     label = "Всего оценок",
                     value = "${summary.marksCount}"
                 )
+            }
 
-                if (subjectMarks.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "Все оценки за период:",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            if (subjectMarks.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        val displayMarks = subjectMarks.take(10)
-                        displayMarks.forEach { m ->
-                            val (bg, txt) = getMarkColors(m.value)
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = bg
-                            ) {
-                                Text(
-                                    text = m.value,
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = txt,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                        Text(
+                            text = "Оценки за период (нажмите для деталей):",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val displayMarks = subjectMarks.take(10)
+                            displayMarks.forEach { m ->
+                                val (bg, txt) = getMarkColors(m.value)
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = bg,
+                                    modifier = Modifier.clickable { onMarkClick(m) }
+                                ) {
+                                    Text(
+                                        text = m.value,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = txt,
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    )
-}
 
-@Composable
-private fun DetailItem(
-    label: String,
-    value: String
-) {
-    Column {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
-        )
+            Spacer(Modifier.height(18.dp))
+
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Закрыть")
+            }
+        }
     }
 }
 
