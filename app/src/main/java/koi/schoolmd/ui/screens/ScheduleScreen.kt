@@ -182,17 +182,25 @@ fun ScheduleScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = formatWeekRange(monday, saturday),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
             )
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 if (!isCurrentWeek) {
                     FilledTonalButton(
                         onClick = {
@@ -200,20 +208,20 @@ fun ScheduleScreen(
                             selectedDayIndex = (today.dayOfWeek.value - 1).coerceIn(0, 5)
                         },
                         modifier = Modifier
-                            .height(32.dp)
-                            .padding(end = 6.dp),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp)
+                            .height(30.dp)
+                            .padding(end = 4.dp),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)
                     ) {
                         Text(
                             text = "Сегодня",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                 }
 
                 IconButton(
                     onClick = { anchorDate = anchorDate.minusWeeks(1) },
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -224,7 +232,7 @@ fun ScheduleScreen(
 
                 IconButton(
                     onClick = { anchorDate = anchorDate.plusWeeks(1) },
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -703,13 +711,17 @@ fun LessonCard(
 }
 
 private fun formatWeekRange(monday: LocalDate, saturday: LocalDate): String {
-    val months = listOf(
+    val fullMonths = listOf(
         "января", "февраля", "марта", "апреля", "мая", "июня",
         "июля", "августа", "сентября", "октября", "ноября", "декабря"
     )
+    val shortMonths = listOf(
+        "янв", "фев", "мар", "апр", "мая", "июн",
+        "июл", "авг", "сен", "окт", "ноя", "дек"
+    )
     return if (monday.monthValue == saturday.monthValue) {
-        "${monday.dayOfMonth} — ${saturday.dayOfMonth} ${months[monday.monthValue - 1]}"
+        "${monday.dayOfMonth} – ${saturday.dayOfMonth} ${fullMonths[monday.monthValue - 1]}"
     } else {
-        "${monday.dayOfMonth} ${months[monday.monthValue - 1]} — ${saturday.dayOfMonth} ${months[saturday.monthValue - 1]}"
+        "${monday.dayOfMonth} ${shortMonths[monday.monthValue - 1]} – ${saturday.dayOfMonth} ${shortMonths[saturday.monthValue - 1]}"
     }
 }
