@@ -81,6 +81,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -119,10 +120,21 @@ fun HomeworkScreen(
     var anchorDate by remember { mutableStateOf(LocalDate.now()) }
     val today = remember { LocalDate.now() }
 
-    var homeworkList by remember {
-        mutableStateOf(homeworkRepository.getCachedHomeworks(session, anchorDate) ?: emptyList())
+    val monday = remember(anchorDate) { anchorDate.with(DayOfWeek.MONDAY) }
+    val sunday = remember(monday) { monday.plusDays(6) }
+    val isCurrentWeek = remember(monday, today) {
+        monday == today.with(DayOfWeek.MONDAY)
     }
-    var isLoading by remember { mutableStateOf(homeworkList.isEmpty()) }
+
+    val homeworksByWeek = remember {
+        mutableStateMapOf<LocalDate, List<HomeworkItem>>().apply {
+            val initialMonday = LocalDate.now().with(DayOfWeek.MONDAY)
+            homeworkRepository.getCachedHomeworks(session, initialMonday)?.let {
+                put(initialMonday, it)
+            }
+        }
+    }
+    val loadingWeeks = remember { mutableStateMapOf<LocalDate, Boolean>() }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     var statusFilter by remember { mutableStateOf(HomeworkStatusFilter.ALL) }
@@ -131,19 +143,26 @@ fun HomeworkScreen(
     var isSearchVisible by remember { mutableStateOf(false) }
     var selectedHomeworkForDetail by remember { mutableStateOf<HomeworkItem?>(null) }
 
-    fun loadData(forceRefresh: Boolean = false) {
-        isLoading = true
+    fun loadDataForWeek(targetMonday: LocalDate, forceRefresh: Boolean = false) {
+        val cached = homeworkRepository.getCachedHomeworks(session, targetMonday)
+        if (cached != null && !forceRefresh) {
+            homeworksByWeek[targetMonday] = cached
+        }
+
+        if (homeworksByWeek[targetMonday] == null || forceRefresh) {
+            loadingWeeks[targetMonday] = true
+        }
         errorMessage = null
-        homeworkRepository.fetchHomeworks(session, anchorDate, forceRefresh = forceRefresh) { result ->
+
+        homeworkRepository.fetchHomeworks(session, targetMonday, forceRefresh = forceRefresh) { result ->
+            loadingWeeks[targetMonday] = false
             result.fold(
                 onSuccess = { items ->
-                    homeworkList = items
-                    isLoading = false
+                    homeworksByWeek[targetMonday] = items
                     errorMessage = null
                 },
                 onFailure = { error ->
-                    isLoading = false
-                    if (homeworkList.isEmpty()) {
+                    if (homeworksByWeek[targetMonday] == null) {
                         errorMessage = error.message ?: "Не удалось загрузить задания"
                     }
                 }
@@ -151,52 +170,35 @@ fun HomeworkScreen(
         }
     }
 
-    LaunchedEffect(anchorDate) {
-        loadData(forceRefresh = false)
+    LaunchedEffect(monday) {
+        loadDataForWeek(monday, forceRefresh = false)
+        loadDataForWeek(monday.minusWeeks(1), forceRefresh = false)
+        loadDataForWeek(monday.plusWeeks(1), forceRefresh = false)
     }
 
-    val monday = remember(anchorDate) { anchorDate.with(DayOfWeek.MONDAY) }
-    val sunday = remember(monday) { monday.plusDays(6) }
-    val isCurrentWeek = remember(monday, today) {
-        monday == today.with(DayOfWeek.MONDAY)
-    }
+    val currentHomeworkList = homeworksByWeek[monday]
+        ?: homeworkRepository.getCachedHomeworks(session, monday)
+        ?: emptyList()
 
-    // Filter items
-    val filteredHomeworks = remember(homeworkList, statusFilter, selectedSubjectFilter, searchQuery) {
-        homeworkList.filter { item ->
-            val matchesStatus = when (statusFilter) {
-                HomeworkStatusFilter.ALL -> true
-                HomeworkStatusFilter.PENDING -> !item.isDone
-                HomeworkStatusFilter.COMPLETED -> item.isDone
-            }
-            val matchesSubject = selectedSubjectFilter == null || item.subject == selectedSubjectFilter
-            val matchesSearch = searchQuery.isBlank() ||
-                    item.subject.contains(searchQuery, ignoreCase = true) ||
-                    item.description.contains(searchQuery, ignoreCase = true)
-
-            matchesStatus && matchesSubject && matchesSearch
-        }
-    }
-
-    // Available subjects for chips
-    val availableSubjects = remember(homeworkList) {
-        homeworkList.map { it.subject }.distinct().sorted()
-    }
-
-    val totalCount = homeworkList.size
-    val completedCount = homeworkList.count { it.isDone }
+    val totalCount = currentHomeworkList.size
+    val completedCount = currentHomeworkList.count { it.isDone }
     val pendingCount = totalCount - completedCount
     val progressFraction by animateFloatAsState(
         targetValue = if (totalCount > 0) completedCount.toFloat() / totalCount else 0f,
         label = "progress"
     )
 
+    // Available subjects for chips
+    val availableSubjects = remember(currentHomeworkList) {
+        currentHomeworkList.map { it.subject }.distinct().sorted()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Top Header: "Задания" + Refresh
+        // Top Header: SchoolMD + Задания + Search/Refresh
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -204,26 +206,36 @@ fun HomeworkScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Column {
                 Text(
-                    text = "Задания",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.3).sp
+                    text = "SchoolMD",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp
                     )
                 )
-                if (totalCount > 0 && pendingCount > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                    ) {
-                        Text(
-                            text = "$pendingCount",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Задания",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (totalCount > 0 && pendingCount > 0) {
+                        Spacer(Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        ) {
+                            Text(
+                                text = "$pendingCount",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -243,12 +255,13 @@ fun HomeworkScreen(
 
                 Spacer(Modifier.width(4.dp))
 
+                val isCurrentLoading = loadingWeeks[monday] == true
                 IconButton(
-                    onClick = { loadData(forceRefresh = true) },
-                    enabled = !isLoading,
+                    onClick = { loadDataForWeek(monday, forceRefresh = true) },
+                    enabled = !isCurrentLoading,
                     modifier = Modifier.size(36.dp)
                 ) {
-                    if (isLoading) {
+                    if (isCurrentLoading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
@@ -307,7 +320,11 @@ fun HomeworkScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(
-                onClick = { anchorDate = anchorDate.minusWeeks(1) },
+                onClick = {
+                    val prevMonday = monday.minusWeeks(1)
+                    anchorDate = anchorDate.minusWeeks(1)
+                    loadDataForWeek(prevMonday)
+                },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
@@ -320,7 +337,10 @@ fun HomeworkScreen(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable {
-                    if (!isCurrentWeek) anchorDate = today
+                    if (!isCurrentWeek) {
+                        anchorDate = today
+                        loadDataForWeek(today.with(DayOfWeek.MONDAY))
+                    }
                 }
             ) {
                 Text(
@@ -338,7 +358,11 @@ fun HomeworkScreen(
             }
 
             IconButton(
-                onClick = { anchorDate = anchorDate.plusWeeks(1) },
+                onClick = {
+                    val nextMonday = monday.plusWeeks(1)
+                    anchorDate = anchorDate.plusWeeks(1)
+                    loadDataForWeek(nextMonday)
+                },
                 modifier = Modifier.size(36.dp)
             ) {
                 Icon(
@@ -349,12 +373,14 @@ fun HomeworkScreen(
             }
         }
 
+        Spacer(Modifier.height(6.dp))
+
         // Progress Capsule (MD3 compact container)
         if (totalCount > 0) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 2.dp),
+                    .padding(horizontal = 20.dp),
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
@@ -388,6 +414,8 @@ fun HomeworkScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(6.dp))
         }
 
         // Status Filter Chips (Material 3 Expressive)
@@ -457,15 +485,22 @@ fun HomeworkScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(monday) {
+                .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+                        onDragStart = {
+                            dragAccumulator = 0f
+                        },
                         onDragEnd = {
                             if (dragAccumulator > 60f) {
                                 // Swiped right -> previous week
+                                val prevMonday = monday.minusWeeks(1)
                                 anchorDate = anchorDate.minusWeeks(1)
+                                loadDataForWeek(prevMonday)
                             } else if (dragAccumulator < -60f) {
                                 // Swiped left -> next week
+                                val nextMonday = monday.plusWeeks(1)
                                 anchorDate = anchorDate.plusWeeks(1)
+                                loadDataForWeek(nextMonday)
                             }
                             dragAccumulator = 0f
                         },
@@ -500,9 +535,30 @@ fun HomeworkScreen(
                     }
                 },
                 label = "HomeworkWeekTransition"
-            ) { _ ->
+            ) { targetMonday ->
+                val targetSunday = targetMonday.plusDays(6)
+                val targetItems = homeworksByWeek[targetMonday]
+                    ?: homeworkRepository.getCachedHomeworks(session, targetMonday)
+                val isTargetLoading = (loadingWeeks[targetMonday] == true || targetItems == null) && errorMessage == null
+
+                val targetFiltered = remember(targetItems, statusFilter, selectedSubjectFilter, searchQuery) {
+                    (targetItems ?: emptyList()).filter { item ->
+                        val matchesStatus = when (statusFilter) {
+                            HomeworkStatusFilter.ALL -> true
+                            HomeworkStatusFilter.PENDING -> !item.isDone
+                            HomeworkStatusFilter.COMPLETED -> item.isDone
+                        }
+                        val matchesSubject = selectedSubjectFilter == null || item.subject == selectedSubjectFilter
+                        val matchesSearch = searchQuery.isBlank() ||
+                                item.subject.contains(searchQuery, ignoreCase = true) ||
+                                item.description.contains(searchQuery, ignoreCase = true)
+
+                        matchesStatus && matchesSubject && matchesSearch
+                    }
+                }
+
                 when {
-                    isLoading && homeworkList.isEmpty() -> {
+                    isTargetLoading -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -522,7 +578,7 @@ fun HomeworkScreen(
                         }
                     }
 
-                    errorMessage != null && homeworkList.isEmpty() -> {
+                    errorMessage != null && targetItems == null -> {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -543,13 +599,14 @@ fun HomeworkScreen(
                                 textAlign = TextAlign.Center
                             )
                             Spacer(Modifier.height(16.dp))
-                            FilledTonalButton(onClick = { loadData(forceRefresh = true) }) {
+                            FilledTonalButton(onClick = { loadDataForWeek(targetMonday, forceRefresh = true) }) {
                                 Text("Повторить запрос")
                             }
                         }
                     }
 
-                    filteredHomeworks.isEmpty() -> {
+                    targetFiltered.isEmpty() -> {
+                        val targetTotal = targetItems?.size ?: 0
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -565,12 +622,12 @@ fun HomeworkScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = if (statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0)
+                                    imageVector = if (statusFilter == HomeworkStatusFilter.PENDING && targetTotal > 0)
                                         Icons.Outlined.CheckCircle
                                     else Icons.Outlined.EventBusy,
                                     contentDescription = null,
                                     modifier = Modifier.size(32.dp),
-                                    tint = if (statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0)
+                                    tint = if (statusFilter == HomeworkStatusFilter.PENDING && targetTotal > 0)
                                         MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.outline
                                 )
@@ -579,16 +636,16 @@ fun HomeworkScreen(
 
                             val emptyTitle = when {
                                 searchQuery.isNotBlank() -> "Ничего не найдено"
-                                statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Все задания выполнены!"
+                                statusFilter == HomeworkStatusFilter.PENDING && targetTotal > 0 -> "Все задания выполнены!"
                                 statusFilter == HomeworkStatusFilter.COMPLETED -> "Нет выполненных заданий"
                                 else -> "На эту неделю заданий нет"
                             }
 
                             val emptySubtitle = when {
                                 searchQuery.isNotBlank() -> "По запросу «$searchQuery» ничего не найдено"
-                                statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Вы сделали все домашние задания на эту неделю 🎉"
+                                statusFilter == HomeworkStatusFilter.PENDING && targetTotal > 0 -> "Вы сделали все домашние задания на эту неделю 🎉"
                                 statusFilter == HomeworkStatusFilter.COMPLETED -> "Отметьте выполненные задания галочкой"
-                                else -> "С ${formatShortDate(monday)} по ${formatShortDate(sunday)} заданий не запланировано"
+                                else -> "С ${formatShortDate(targetMonday)} по ${formatShortDate(targetSunday)} заданий не запланировано"
                             }
 
                             Text(
@@ -608,8 +665,8 @@ fun HomeworkScreen(
                     }
 
                     else -> {
-                        val groupedHomeworks = remember(filteredHomeworks) {
-                            filteredHomeworks
+                        val groupedHomeworks = remember(targetFiltered) {
+                            targetFiltered
                                 .groupBy { it.date }
                                 .toSortedMap()
                                 .mapValues { (_, items) ->
@@ -646,7 +703,8 @@ fun HomeworkScreen(
                                             coroutineScope.launch {
                                                 homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
                                                     res.onSuccess { newDone ->
-                                                        homeworkList = homeworkList.map {
+                                                        val currentList = homeworksByWeek[targetMonday] ?: emptyList()
+                                                        homeworksByWeek[targetMonday] = currentList.map {
                                                             if (it.id == targetItem.id) it.copy(isDone = newDone) else it
                                                         }
                                                         if (selectedHomeworkForDetail?.id == targetItem.id) {
@@ -677,10 +735,13 @@ fun HomeworkScreen(
                 coroutineScope.launch {
                     homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
                         res.onSuccess { newDone ->
-                            homeworkList = homeworkList.map {
+                            val currentList = homeworksByWeek[monday] ?: emptyList()
+                            homeworksByWeek[monday] = currentList.map {
                                 if (it.id == targetItem.id) it.copy(isDone = newDone) else it
                             }
-                            selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                            if (selectedHomeworkForDetail?.id == targetItem.id) {
+                                selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                            }
                         }
                     }
                 }

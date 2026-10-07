@@ -180,7 +180,7 @@ fun ScheduleScreen(
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Top Header: schoolmd + Refresh
+        // Top Header: SchoolMD + Расписание + Refresh
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -188,13 +188,20 @@ fun ScheduleScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "schoolmd",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.5).sp
+            Column {
+                Text(
+                    text = "SchoolMD",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.5).sp
+                    )
                 )
-            )
+                Text(
+                    text = "Расписание",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             IconButton(
                 onClick = { loadSchedule(currentMonday, force = true) },
@@ -347,8 +354,11 @@ fun ScheduleScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(selectedDate) {
+                .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+                        onDragStart = {
+                            dragAccumulator = 0f
+                        },
                         onDragEnd = {
                             if (dragAccumulator > 60f) {
                                 // Swiped right -> previous day
@@ -471,7 +481,12 @@ fun ScheduleScreen(
                         },
                         label = "ScheduleDayTransition"
                     ) { targetDate ->
-                        val daySchedule = weekSchedule.find { it.date == targetDate }
+                        val targetMonday = targetDate.with(DayOfWeek.MONDAY)
+                        val targetSunday = targetMonday.plusDays(6)
+                        val effectiveWeek = if (targetMonday == currentMonday) weekSchedule
+                            else (scheduleRepository.getCachedWeek(session, targetMonday) ?: emptyList())
+                        val daySchedule = effectiveWeek.find { it.date == targetDate }
+                        val targetLessonsCount = effectiveWeek.sumOf { it.lessons.size }
                         if (daySchedule == null || daySchedule.lessons.isEmpty()) {
                             Column(
                                 modifier = Modifier
@@ -496,9 +511,9 @@ fun ScheduleScreen(
                                 }
                                 Spacer(Modifier.height(16.dp))
 
-                                val emptyTitle = if (allLessonsInWeek == 0) "На этой неделе уроков нет" else "На этот день уроков нет"
+                                val emptyTitle = if (targetLessonsCount == 0) "На этой неделе уроков нет" else "На этот день уроков нет"
                                 val emptySubtitle = when {
-                                    allLessonsInWeek == 0 -> "С ${formatShortDate(currentMonday)} по ${formatShortDate(currentSunday)} занятия не запланированы"
+                                    targetLessonsCount == 0 -> "С ${formatShortDate(targetMonday)} по ${formatShortDate(targetSunday)} занятия не запланированы"
                                     targetDate.dayOfWeek == DayOfWeek.SUNDAY -> "Воскресенье — выходной день"
                                     else -> "Свободный день или каникулы"
                                 }

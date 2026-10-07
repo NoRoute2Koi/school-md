@@ -183,7 +183,7 @@ fun MarksScreen(
         ) {
             Column {
                 Text(
-                    text = "schoolmd",
+                    text = "SchoolMD",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = (-0.5).sp
@@ -261,6 +261,8 @@ fun MarksScreen(
                         weekTotalMarks = weekTotalMarks,
                         weekAverageGrade = weekAverageGrade,
                         weekDayMarks = weekDayMarks,
+                        allMarks = allMarks,
+                        marksRepository = marksRepository,
                         isLoading = isLoading,
                         errorMessage = errorMessage,
                         onPreviousWeek = { anchorDate = anchorDate.minusWeeks(1) },
@@ -315,6 +317,8 @@ private fun MarksFeedByDays(
     weekTotalMarks: Int,
     weekAverageGrade: String?,
     weekDayMarks: List<DayMarks>,
+    allMarks: List<MarkItem>,
+    marksRepository: MarksRepository,
     isLoading: Boolean,
     errorMessage: String?,
     onPreviousWeek: () -> Unit,
@@ -439,8 +443,11 @@ private fun MarksFeedByDays(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(monday) {
+                .pointerInput(Unit) {
                     detectHorizontalDragGestures(
+                        onDragStart = {
+                            dragAccumulator = 0f
+                        },
                         onDragEnd = {
                             if (dragAccumulator > 60f) {
                                 onPreviousWeek()
@@ -511,8 +518,13 @@ private fun MarksFeedByDays(
                             }
                         },
                         label = "MarksFeedTransition"
-                    ) { _ ->
-                        if (weekDayMarks.isEmpty()) {
+                    ) { targetMonday ->
+                        val targetSunday = targetMonday.plusDays(6)
+                        val targetWeekDayMarks = remember(allMarks, targetMonday) {
+                            marksRepository.getMarksForWeek(allMarks, targetMonday)
+                        }
+
+                        if (targetWeekDayMarks.isEmpty()) {
                             // Unified empty state
                             Column(
                                 modifier = Modifier
@@ -544,7 +556,7 @@ private fun MarksFeedByDays(
                                 )
                                 Spacer(Modifier.height(6.dp))
                                 Text(
-                                    text = "С ${formatShortDate(monday)} по ${formatShortDate(sunday)} оценок не выставлено",
+                                    text = "С ${formatShortDate(targetMonday)} по ${formatShortDate(targetSunday)} оценок не выставлено",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center
@@ -555,7 +567,7 @@ private fun MarksFeedByDays(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)
                             ) {
-                                items(weekDayMarks, key = { it.date.toString() }) { dayMarks ->
+                                items(targetWeekDayMarks, key = { it.date.toString() }) { dayMarks ->
                                     Column(modifier = Modifier.fillMaxWidth()) {
                                         // Section header: Date above the card (matching header-example-md3.jpg)
                                         Text(
