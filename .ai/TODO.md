@@ -31,6 +31,7 @@
 - [x] Support regional endpoints (Moscow, Mosreg, Kaluga, Tyumen, Tatarstan, Dagestan)
 - [x] UI/UX polish across Schedule, Marks, and Profile screens (spacing, ribbon days, developer footer)
 - [x] Comprehensive repository privacy audit: sanitized test mocks, purged reflog, ensured zero personal data
+- [x] Implement date section headers on Homework screen matching Marks screen design (На сегодня / На завтра / На ...)
 - [x] Implement Material 3 Expressive sliding modal bottom sheets (ModalBottomSheet) matching mockup:
   - Tapping lesson in Schedule screen opens Lesson Detail sheet (subject, time, teacher, classroom, homework, copy action)
   - Tapping mark in Marks screen (by date or by subject) opens Mark Detail sheet (score, control form, weight, exam/point status, teacher comment)

@@ -9,6 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import koi.schoolmd.data.HomeworkItem
 import koi.schoolmd.data.HomeworkStatusFilter
+import koi.schoolmd.ui.screens.formatHomeworkDateHeader
 import java.time.LocalDate
 
 class HomeworkParserTest {
@@ -105,5 +106,43 @@ class HomeworkParserTest {
         assertEquals(2, pending.size)
         assertEquals(1, completed.size)
         assertEquals("Алгебра", completed[0].subject)
+    }
+
+    @Test
+    fun testFormatHomeworkDateHeader() {
+        val anchorWednesday = LocalDate.of(2026, 10, 7)
+
+        // Today
+        assertEquals("На сегодня, 7 октября", formatHomeworkDateHeader(anchorWednesday, anchorWednesday))
+
+        // Tomorrow
+        val tomorrow = anchorWednesday.plusDays(1)
+        assertEquals("На завтра, 8 октября", formatHomeworkDateHeader(tomorrow, anchorWednesday))
+
+        // Yesterday
+        val yesterday = anchorWednesday.minusDays(1)
+        assertEquals("На вчера, 6 октября", formatHomeworkDateHeader(yesterday, anchorWednesday))
+
+        // Other days (accusative)
+        val friday = LocalDate.of(2026, 10, 9)
+        assertEquals("На пятницу, 9 октября", formatHomeworkDateHeader(friday, anchorWednesday))
+
+        val nextMonday = LocalDate.of(2026, 10, 12)
+        assertEquals("На понедельник, 12 октября", formatHomeworkDateHeader(nextMonday, anchorWednesday))
+
+        val nextTuesday = LocalDate.of(2026, 10, 13)
+        assertEquals("На вторник, 13 октября", formatHomeworkDateHeader(nextTuesday, anchorWednesday))
+
+        val nextWednesday = LocalDate.of(2026, 10, 14)
+        assertEquals("На среду, 14 октября", formatHomeworkDateHeader(nextWednesday, anchorWednesday))
+
+        val nextThursday = LocalDate.of(2026, 10, 15)
+        assertEquals("На четверг, 15 октября", formatHomeworkDateHeader(nextThursday, anchorWednesday))
+
+        val nextSaturday = LocalDate.of(2026, 10, 17)
+        assertEquals("На субботу, 17 октября", formatHomeworkDateHeader(nextSaturday, anchorWednesday))
+
+        val nextSunday = LocalDate.of(2026, 10, 18)
+        assertEquals("На воскресенье, 18 октября", formatHomeworkDateHeader(nextSunday, anchorWednesday))
     }
 }

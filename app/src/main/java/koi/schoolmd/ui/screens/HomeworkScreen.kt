@@ -550,33 +550,60 @@ fun HomeworkScreen(
                 }
 
                 else -> {
+                    val groupedHomeworks = remember(filteredHomeworks) {
+                        filteredHomeworks
+                            .groupBy { it.date }
+                            .toSortedMap()
+                            .mapValues { (_, items) ->
+                                items.sortedWith(compareBy({ it.isDone }, { it.subject }))
+                            }
+                    }
+
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        items(filteredHomeworks, key = { it.id }) { item ->
-                            HomeworkCard(
-                                item = item,
-                                onClick = { selectedHomeworkForDetail = item },
-                                onToggleDone = { targetItem ->
-                                    coroutineScope.launch {
-                                        homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
-                                            res.onSuccess { newDone ->
-                                                homeworkList = homeworkList.map {
-                                                    if (it.id == targetItem.id) it.copy(isDone = newDone) else it
-                                                }
-                                                if (selectedHomeworkForDetail?.id == targetItem.id) {
-                                                    selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                        groupedHomeworks.entries.forEachIndexed { groupIndex, (date, itemsForDate) ->
+                            item(key = "header_${date}") {
+                                Text(
+                                    text = formatHomeworkDateHeader(date),
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(
+                                            start = 4.dp,
+                                            end = 4.dp,
+                                            top = if (groupIndex == 0) 8.dp else 18.dp,
+                                            bottom = 2.dp
+                                        )
+                                )
+                            }
+
+                            items(itemsForDate, key = { it.id }) { item ->
+                                HomeworkCard(
+                                    item = item,
+                                    onClick = { selectedHomeworkForDetail = item },
+                                    onToggleDone = { targetItem ->
+                                        coroutineScope.launch {
+                                            homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
+                                                res.onSuccess { newDone ->
+                                                    homeworkList = homeworkList.map {
+                                                        if (it.id == targetItem.id) it.copy(isDone = newDone) else it
+                                                    }
+                                                    if (selectedHomeworkForDetail?.id == targetItem.id) {
+                                                        selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                            )
+                                )
+                            }
                         }
 
-                        item {
-                            Spacer(Modifier.height(20.dp))
+                        item(key = "bottom_spacer") {
+                            Spacer(Modifier.height(24.dp))
                         }
                     }
                 }
@@ -839,6 +866,35 @@ private fun formatHwWeekRange(monday: LocalDate, sunday: LocalDate): String {
         "${monday.dayOfMonth} – ${sunday.dayOfMonth} $monthMonday"
     } else {
         "${monday.dayOfMonth} $monthMonday – ${sunday.dayOfMonth} $monthSunday"
+    }
+}
+
+internal fun formatHomeworkDateHeader(date: LocalDate, now: LocalDate = LocalDate.now()): String {
+    val ruLocale = Locale("ru", "RU")
+    val tomorrow = now.plusDays(1)
+    val yesterday = now.minusDays(1)
+
+    val pattern = if (date.year != now.year) "d MMMM yyyy г." else "d MMMM"
+    val formatter = DateTimeFormatter.ofPattern(pattern, ruLocale)
+    val dayMonth = date.format(formatter)
+
+    return when (date) {
+        now -> "На сегодня, $dayMonth"
+        tomorrow -> "На завтра, $dayMonth"
+        yesterday -> "На вчера, $dayMonth"
+        else -> {
+            val dayNameAccusative = when (date.dayOfWeek) {
+                DayOfWeek.MONDAY -> "понедельник"
+                DayOfWeek.TUESDAY -> "вторник"
+                DayOfWeek.WEDNESDAY -> "среду"
+                DayOfWeek.THURSDAY -> "четверг"
+                DayOfWeek.FRIDAY -> "пятницу"
+                DayOfWeek.SATURDAY -> "субботу"
+                DayOfWeek.SUNDAY -> "воскресенье"
+                null -> ""
+            }
+            "На $dayNameAccusative, $dayMonth"
+        }
     }
 }
 
