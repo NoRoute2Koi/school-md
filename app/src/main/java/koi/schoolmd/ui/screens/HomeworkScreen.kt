@@ -3,12 +3,17 @@ package koi.schoolmd.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -75,6 +80,7 @@ import koi.schoolmd.ui.components.SheetHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,6 +90,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -189,7 +196,7 @@ fun HomeworkScreen(
             .fillMaxSize()
             .padding(top = 16.dp)
     ) {
-        // Top Header: "schoolmd" / "Задания" + Refresh
+        // Top Header: "Задания" + Refresh
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,39 +204,53 @@ fun HomeworkScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "Задания",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.5).sp
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.3).sp
                     )
                 )
-                if (totalCount > 0) {
-                    Text(
-                        text = if (pendingCount > 0) "К сдаче: $pendingCount" else "Все задания выполнены 🎉",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                if (totalCount > 0 && pendingCount > 0) {
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                    ) {
+                        Text(
+                            text = "$pendingCount",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { isSearchVisible = !isSearchVisible }) {
+                IconButton(
+                    onClick = { isSearchVisible = !isSearchVisible },
+                    modifier = Modifier.size(36.dp)
+                ) {
                     Icon(
                         imageVector = if (isSearchVisible) Icons.Default.Clear else Icons.Default.Search,
                         contentDescription = "Поиск",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
+                Spacer(Modifier.width(4.dp))
+
                 IconButton(
                     onClick = { loadData(forceRefresh = true) },
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    modifier = Modifier.size(36.dp)
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -237,7 +258,8 @@ fun HomeworkScreen(
                         Icon(
                             imageVector = Icons.Outlined.Refresh,
                             contentDescription = "Обновить задания",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -251,10 +273,10 @@ fun HomeworkScreen(
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
                 placeholder = { Text("Поиск по предмету или тексту...") },
                 singleLine = true,
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -274,7 +296,7 @@ fun HomeworkScreen(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
         // Week Navigation Bar
         Row(
@@ -285,7 +307,8 @@ fun HomeworkScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(
-                onClick = { anchorDate = anchorDate.minusWeeks(1) }
+                onClick = { anchorDate = anchorDate.minusWeeks(1) },
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.ChevronLeft,
@@ -315,7 +338,8 @@ fun HomeworkScreen(
             }
 
             IconButton(
-                onClick = { anchorDate = anchorDate.plusWeeks(1) }
+                onClick = { anchorDate = anchorDate.plusWeeks(1) },
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
@@ -325,46 +349,42 @@ fun HomeworkScreen(
             }
         }
 
-        // Progress Card (MD3 Expressive container)
+        // Progress Capsule (MD3 compact container)
         if (totalCount > 0) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(20.dp),
+                    .padding(horizontal = 20.dp, vertical = 2.dp),
+                shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Прогресс выполнения",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "$completedCount из $totalCount (${(progressFraction * 100).toInt()}%)",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = if (completedCount == totalCount) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
+                    Text(
+                        text = "$completedCount/$totalCount",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(10.dp))
                     LinearProgressIndicator(
                         progress = { progressFraction },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
+                            .weight(1f)
+                            .height(6.dp),
                         strokeCap = StrokeCap.Round,
                         color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "${(progressFraction * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = if (completedCount == totalCount) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -374,7 +394,7 @@ fun HomeworkScreen(
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
+                .padding(vertical = 2.dp),
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -392,7 +412,7 @@ fun HomeworkScreen(
                     label = {
                         Text("${filter.title} ($count)")
                     },
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(12.dp),
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -416,7 +436,7 @@ fun HomeworkScreen(
                             selectedSubjectFilter = if (isSelected) null else subject
                         },
                         label = { Text(subject) },
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                             selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -431,179 +451,218 @@ fun HomeworkScreen(
 
         Spacer(Modifier.height(4.dp))
 
-        // Content Area: Loading / Error / Empty / List
+        // Content Area: Loading / Error / Empty / List with swipe support
+        var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .pointerInput(monday) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragAccumulator > 60f) {
+                                // Swiped right -> previous week
+                                anchorDate = anchorDate.minusWeeks(1)
+                            } else if (dragAccumulator < -60f) {
+                                // Swiped left -> next week
+                                anchorDate = anchorDate.plusWeeks(1)
+                            }
+                            dragAccumulator = 0f
+                        },
+                        onDragCancel = {
+                            dragAccumulator = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            dragAccumulator += dragAmount
+                        }
+                    )
+                }
                 .padding(horizontal = 20.dp),
             contentAlignment = Alignment.TopCenter
         ) {
-            when {
-                isLoading && homeworkList.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 80.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(44.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = "Загрузка заданий...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            AnimatedContent(
+                targetState = monday,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                fadeIn(animationSpec = tween(200)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeOut(animationSpec = tween(180))
+                            )
+                    } else {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                fadeIn(animationSpec = tween(200)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeOut(animationSpec = tween(180))
+                            )
                     }
-                }
-
-                errorMessage != null && homeworkList.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 80.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.EventBusy,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(52.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = errorMessage ?: "Ошибка",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        FilledTonalButton(onClick = { loadData(forceRefresh = true) }) {
-                            Text("Повторить запрос")
+                },
+                label = "HomeworkWeekTransition"
+            ) { _ ->
+                when {
+                    isLoading && homeworkList.isEmpty() -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 80.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(44.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = "Загрузка заданий...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                }
 
-                filteredHomeworks.isEmpty() -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 70.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = if (statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0)
-                                Icons.Outlined.CheckCircle
-                            else Icons.Outlined.EventBusy,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            modifier = Modifier.size(60.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-
-                        val emptyTitle = when {
-                            searchQuery.isNotBlank() -> "Ничего не найдено"
-                            statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Все задания выполнены!"
-                            statusFilter == HomeworkStatusFilter.COMPLETED -> "Нет выполненных заданий"
-                            else -> "На эту неделю заданий нет"
-                        }
-
-                        val emptySubtitle = when {
-                            searchQuery.isNotBlank() -> "По запросу «$searchQuery» ничего не найдено"
-                            statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Вы сделали все домашние задания на эту неделю 🎉"
-                            statusFilter == HomeworkStatusFilter.COMPLETED -> "Отметьте выполненные задания галочкой"
-                            else -> "Учителя пока не добавили домашние задания на этот период"
-                        }
-
-                        Text(
-                            text = emptyTitle,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = emptySubtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(Modifier.height(20.dp))
-                        if (!isCurrentWeek) {
-                            FilledTonalButton(onClick = { anchorDate = today }) {
-                                Text("К текущей неделе")
-                            }
-                        } else {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                FilledTonalButton(onClick = { anchorDate = anchorDate.minusWeeks(1) }) {
-                                    Text("← Прошлая неделя")
-                                }
-                                FilledTonalButton(onClick = { anchorDate = anchorDate.plusWeeks(1) }) {
-                                    Text("Следующая неделя →")
-                                }
+                    errorMessage != null && homeworkList.isEmpty() -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 80.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.EventBusy,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(52.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                text = errorMessage ?: "Ошибка",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            FilledTonalButton(onClick = { loadData(forceRefresh = true) }) {
+                                Text("Повторить запрос")
                             }
                         }
                     }
-                }
 
-                else -> {
-                    val groupedHomeworks = remember(filteredHomeworks) {
-                        filteredHomeworks
-                            .groupBy { it.date }
-                            .toSortedMap()
-                            .mapValues { (_, items) ->
-                                items.sortedWith(compareBy({ it.isDone }, { it.subject }))
-                            }
-                    }
-
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        groupedHomeworks.entries.forEachIndexed { groupIndex, (date, itemsForDate) ->
-                            item(key = "header_${date}") {
-                                Text(
-                                    text = formatHomeworkDateHeader(date),
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            start = 4.dp,
-                                            end = 4.dp,
-                                            top = if (groupIndex == 0) 8.dp else 18.dp,
-                                            bottom = 2.dp
-                                        )
+                    filteredHomeworks.isEmpty() -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 48.dp, horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0)
+                                        Icons.Outlined.CheckCircle
+                                    else Icons.Outlined.EventBusy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = if (statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0)
+                                        MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outline
                                 )
                             }
+                            Spacer(Modifier.height(16.dp))
 
-                            items(itemsForDate, key = { it.id }) { item ->
-                                HomeworkCard(
-                                    item = item,
-                                    onClick = { selectedHomeworkForDetail = item },
-                                    onToggleDone = { targetItem ->
-                                        coroutineScope.launch {
-                                            homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
-                                                res.onSuccess { newDone ->
-                                                    homeworkList = homeworkList.map {
-                                                        if (it.id == targetItem.id) it.copy(isDone = newDone) else it
-                                                    }
-                                                    if (selectedHomeworkForDetail?.id == targetItem.id) {
-                                                        selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                            val emptyTitle = when {
+                                searchQuery.isNotBlank() -> "Ничего не найдено"
+                                statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Все задания выполнены!"
+                                statusFilter == HomeworkStatusFilter.COMPLETED -> "Нет выполненных заданий"
+                                else -> "На эту неделю заданий нет"
+                            }
+
+                            val emptySubtitle = when {
+                                searchQuery.isNotBlank() -> "По запросу «$searchQuery» ничего не найдено"
+                                statusFilter == HomeworkStatusFilter.PENDING && totalCount > 0 -> "Вы сделали все домашние задания на эту неделю 🎉"
+                                statusFilter == HomeworkStatusFilter.COMPLETED -> "Отметьте выполненные задания галочкой"
+                                else -> "С ${formatShortDate(monday)} по ${formatShortDate(sunday)} заданий не запланировано"
+                            }
+
+                            Text(
+                                text = emptyTitle,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                text = emptySubtitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+
+                    else -> {
+                        val groupedHomeworks = remember(filteredHomeworks) {
+                            filteredHomeworks
+                                .groupBy { it.date }
+                                .toSortedMap()
+                                .mapValues { (_, items) ->
+                                    items.sortedWith(compareBy({ it.isDone }, { it.subject }))
+                                }
+                        }
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            groupedHomeworks.entries.forEachIndexed { groupIndex, (date, itemsForDate) ->
+                                item(key = "header_${date}") {
+                                    Text(
+                                        text = formatHomeworkDateHeader(date),
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(
+                                                start = 4.dp,
+                                                end = 4.dp,
+                                                top = if (groupIndex == 0) 8.dp else 18.dp,
+                                                bottom = 2.dp
+                                            )
+                                    )
+                                }
+
+                                items(itemsForDate, key = { it.id }) { item ->
+                                    HomeworkCard(
+                                        item = item,
+                                        onClick = { selectedHomeworkForDetail = item },
+                                        onToggleDone = { targetItem ->
+                                            coroutineScope.launch {
+                                                homeworkRepository.toggleHomeworkDone(session, targetItem) { res ->
+                                                    res.onSuccess { newDone ->
+                                                        homeworkList = homeworkList.map {
+                                                            if (it.id == targetItem.id) it.copy(isDone = newDone) else it
+                                                        }
+                                                        if (selectedHomeworkForDetail?.id == targetItem.id) {
+                                                            selectedHomeworkForDetail = selectedHomeworkForDetail?.copy(isDone = newDone)
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
-                        }
 
-                        item(key = "bottom_spacer") {
-                            Spacer(Modifier.height(24.dp))
+                            item(key = "bottom_spacer") {
+                                Spacer(Modifier.height(24.dp))
+                            }
                         }
                     }
                 }

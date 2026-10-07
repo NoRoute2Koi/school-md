@@ -2,8 +2,12 @@ package koi.schoolmd.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -346,19 +350,34 @@ fun ScheduleScreen(
                 .pointerInput(selectedDate) {
                     detectHorizontalDragGestures(
                         onDragEnd = {
-                            if (dragAccumulator > 70f) {
+                            if (dragAccumulator > 60f) {
                                 // Swiped right -> previous day
                                 val prev = selectedDate.minusDays(1)
                                 if (prev in allRibbonDays) {
                                     selectedDate = prev
+                                    val idx = allRibbonDays.indexOf(prev)
+                                    if (idx >= 0) {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem((idx - 2).coerceAtLeast(0))
+                                        }
+                                    }
                                 }
-                            } else if (dragAccumulator < -70f) {
+                            } else if (dragAccumulator < -60f) {
                                 // Swiped left -> next day
                                 val next = selectedDate.plusDays(1)
                                 if (next in allRibbonDays) {
                                     selectedDate = next
+                                    val idx = allRibbonDays.indexOf(next)
+                                    if (idx >= 0) {
+                                        coroutineScope.launch {
+                                            listState.animateScrollToItem((idx - 2).coerceAtLeast(0))
+                                        }
+                                    }
                                 }
                             }
+                            dragAccumulator = 0f
+                        },
+                        onDragCancel = {
                             dragAccumulator = 0f
                         },
                         onHorizontalDrag = { _, dragAmount ->
@@ -429,88 +448,90 @@ fun ScheduleScreen(
                     }
                 }
 
-                currentDay == null || currentDay.lessons.isEmpty() -> {
-                    val allLessonsInWeek = weekSchedule.sumOf { it.lessons.size }
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(vertical = 32.dp, horizontal = 16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.EventBusy,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                            modifier = Modifier.size(56.dp)
-                        )
-                        Spacer(Modifier.height(16.dp))
-
-                        if (selectedDate.dayOfWeek == DayOfWeek.SUNDAY) {
-                            Text(
-                                text = "Воскресенье — выходной",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "Уроков нет, можно отдохнуть :3",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        } else if (allLessonsInWeek == 0) {
-                            Text(
-                                text = "Тут пусто, Каникулы либо нет уроков",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = "На этой неделе (${formatWeekRange(currentMonday, currentSunday)}) занятия не запланированы.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        } else {
-                            Text(
-                                text = "На этот день уроков нет",
-                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "Свободный день или выходной",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
-
                 else -> {
+                    val allLessonsInWeek = weekSchedule.sumOf { it.lessons.size }
                     AnimatedContent(
-                        targetState = currentDay,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        label = "DayLessonsTransition"
-                    ) { targetDay ->
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(targetDay.lessons, key = { it.id }) { lesson ->
-                                LessonCard(
-                                    lesson = lesson,
-                                    onClick = { selectedLessonForDetail = lesson }
+                        targetState = selectedDate,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeIn(animationSpec = tween(200)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                                fadeOut(animationSpec = tween(180))
+                                    )
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeIn(animationSpec = tween(200)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                                fadeOut(animationSpec = tween(180))
+                                    )
+                            }
+                        },
+                        label = "ScheduleDayTransition"
+                    ) { targetDate ->
+                        val daySchedule = weekSchedule.find { it.date == targetDate }
+                        if (daySchedule == null || daySchedule.lessons.isEmpty()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(vertical = 48.dp, horizontal = 24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.EventBusy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                Spacer(Modifier.height(16.dp))
+
+                                val emptyTitle = if (allLessonsInWeek == 0) "На этой неделе уроков нет" else "На этот день уроков нет"
+                                val emptySubtitle = when {
+                                    allLessonsInWeek == 0 -> "С ${formatShortDate(currentMonday)} по ${formatShortDate(currentSunday)} занятия не запланированы"
+                                    targetDate.dayOfWeek == DayOfWeek.SUNDAY -> "Воскресенье — выходной день"
+                                    else -> "Свободный день или каникулы"
+                                }
+
+                                Text(
+                                    text = emptyTitle,
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = emptySubtitle,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
                                 )
                             }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(daySchedule.lessons, key = { it.id }) { lesson ->
+                                    LessonCard(
+                                        lesson = lesson,
+                                        onClick = { selectedLessonForDetail = lesson }
+                                    )
+                                }
 
-                            item {
-                                Spacer(Modifier.height(16.dp))
+                                item {
+                                    Spacer(Modifier.height(16.dp))
+                                }
                             }
                         }
                     }
@@ -758,6 +779,14 @@ private fun formatWeekRange(monday: LocalDate, sunday: LocalDate): String {
     } else {
         "${monday.dayOfMonth} ${shortMonths[monday.monthValue - 1]} – ${sunday.dayOfMonth} ${shortMonths[sunday.monthValue - 1]}"
     }
+}
+
+private fun formatShortDate(date: LocalDate): String {
+    val shortMonths = listOf(
+        "янв", "фев", "мар", "апр", "мая", "июн",
+        "июл", "авг", "сен", "окт", "ноя", "дек"
+    )
+    return "${date.dayOfMonth} ${shortMonths[date.monthValue - 1]}"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -1,12 +1,18 @@
 package koi.schoolmd.ui.screens
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +65,7 @@ import koi.schoolmd.ui.components.SheetHeader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -426,145 +433,167 @@ private fun MarksFeedByDays(
 
         Spacer(Modifier.height(4.dp))
 
-        // Main Feed
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                }
-            }
+        // Main Feed with swipe support
+        var dragAccumulator by remember { mutableFloatStateOf(0f) }
 
-            errorMessage != null -> {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Text(
-                            text = errorMessage,
-                            color = MaterialTheme.colorScheme.error,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        FilledTonalButton(onClick = onRetry) {
-                            Text("Повторить")
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInput(monday) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (dragAccumulator > 60f) {
+                                onPreviousWeek()
+                            } else if (dragAccumulator < -60f) {
+                                onNextWeek()
+                            }
+                            dragAccumulator = 0f
+                        },
+                        onDragCancel = {
+                            dragAccumulator = 0f
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            dragAccumulator += dragAmount
                         }
+                    )
+                }
+        ) {
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
-            }
 
-            weekDayMarks.isEmpty() -> {
-                // Empty state for week
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp, vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                        )
+                errorMessage != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.padding(24.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.EventBusy,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
-                                    tint = MaterialTheme.colorScheme.outline
-                                )
-                            }
+                            Text(
+                                text = errorMessage,
+                                color = MaterialTheme.colorScheme.error,
+                                textAlign = TextAlign.Center
+                            )
                             Spacer(Modifier.height(16.dp))
-                            Text(
-                                text = "На этой неделе оценок нет",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = "С ${formatShortDate(monday)} по ${formatShortDate(sunday)} оценок не выставлено",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(Modifier.height(20.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                FilledTonalButton(onClick = onPreviousWeek) {
-                                    Text("← Прошлая неделя")
-                                }
-                                if (!isCurrentWeek) {
-                                    FilledTonalButton(onClick = onCurrentWeek) {
-                                        Text("Текущая")
-                                    }
-                                }
+                            FilledTonalButton(onClick = onRetry) {
+                                Text("Повторить")
                             }
                         }
                     }
                 }
-            }
 
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)
-                ) {
-                    items(weekDayMarks, key = { it.date.toString() }) { dayMarks ->
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // Section header: Date above the card (matching header-example-md3.jpg)
-                            Text(
-                                text = formatMarksDateHeader(dayMarks.date),
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                else -> {
+                    AnimatedContent(
+                        targetState = monday,
+                        transitionSpec = {
+                            if (targetState > initialState) {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeIn(animationSpec = tween(200)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                                fadeOut(animationSpec = tween(180))
+                                    )
+                            } else {
+                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeIn(animationSpec = tween(200)))
+                                    .togetherWith(
+                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                                fadeOut(animationSpec = tween(180))
+                                    )
+                            }
+                        },
+                        label = "MarksFeedTransition"
+                    ) { _ ->
+                        if (weekDayMarks.isEmpty()) {
+                            // Unified empty state
+                            Column(
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp)
-                            )
-
-                            // MD3 Card containing marks for this day (matching header-example-md3.jpg)
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                    .fillMaxSize()
+                                    .padding(vertical = 48.dp, horizontal = 24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
                             ) {
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    dayMarks.marks.forEachIndexed { index, mark ->
-                                        if (index > 0) {
-                                            HorizontalDivider(
-                                                modifier = Modifier.padding(horizontal = 16.dp),
-                                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                                                thickness = 0.8.dp
-                                            )
-                                        }
-                                        MarkItemRow(
-                                            mark = mark,
-                                            onClick = { onMarkClick(mark) }
+                                Box(
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.EventBusy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    text = "На этой неделе оценок нет",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = "С ${formatShortDate(monday)} по ${formatShortDate(sunday)} оценок не выставлено",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 32.dp)
+                            ) {
+                                items(weekDayMarks, key = { it.date.toString() }) { dayMarks ->
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        // Section header: Date above the card (matching header-example-md3.jpg)
+                                        Text(
+                                            text = formatMarksDateHeader(dayMarks.date),
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 8.dp)
                                         )
+
+                                        // MD3 Card containing marks for this day (matching header-example-md3.jpg)
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 16.dp),
+                                            shape = RoundedCornerShape(24.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                                            ),
+                                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                                        ) {
+                                            Column(modifier = Modifier.fillMaxWidth()) {
+                                                dayMarks.marks.forEachIndexed { index, mark ->
+                                                    if (index > 0) {
+                                                        HorizontalDivider(
+                                                            modifier = Modifier.padding(horizontal = 16.dp),
+                                                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                                                            thickness = 0.8.dp
+                                                        )
+                                                    }
+                                                    MarkItemRow(
+                                                        mark = mark,
+                                                        onClick = { onMarkClick(mark) }
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
