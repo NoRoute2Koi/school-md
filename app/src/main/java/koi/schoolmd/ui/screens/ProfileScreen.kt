@@ -463,7 +463,7 @@ fun ProfileScreen(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "videcoded by ",
+                    text = "vibecoded by ",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
