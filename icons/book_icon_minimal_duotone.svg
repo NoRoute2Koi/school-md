@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <!-- Monet CSS Custom Properties for dynamic recoloring -->
+    <style>
+      .monet-bg { fill: var(--monet-container, #DCE2F9); }
+      .monet-primary { fill: var(--monet-primary, #445E91); }
+      .monet-primary-dark { fill: var(--monet-primary-dark, #2D4778); }
+      .monet-pages { fill: var(--monet-surface, #FBF8FF); }
+      .monet-bookmark { fill: var(--monet-tertiary, #76546D); }
+      .monet-bookmark-accent { fill: var(--monet-tertiary-dark, #5C3D55); }
+      .monet-accent-stroke { stroke: var(--monet-surface, #FFFFFF); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <!-- Circular M3 Expressive Container -->
+  <circle class="monet-bg" cx="96" cy="96" r="84" />
+
+  <!-- Back Cover Depth / Base -->
+  <rect class="monet-primary-dark" x="48" y="44" width="96" height="110" rx="10" />
+
+  <!-- Pages Block (Right and Bottom edges) -->
+  <path class="monet-pages" d="M 64 44 H 140 C 142.5 44 144 45.5 144 48 V 146 C 144 148.5 142.5 150 140 150 H 64 Z" />
+
+  <!-- Lower Bookmark (aligned with top ribbon, x=78..102) -->
+  <path class="monet-bookmark" d="M 78 148 V 166 L 90 158 L 102 166 V 148 Z" />
+
+  <!-- Front Cover -->
+  <path class="monet-primary" d="M 52 38 H 134 C 139.5 38 143 41.5 143 47 V 141 C 143 146.5 139.5 150 134 150 H 52 C 45.4 150 40 144.6 40 138 V 50 C 40 43.4 45.4 38 52 38 Z" />
+
+  <!-- Spine Binding Strip -->
+  <path class="monet-primary-dark" d="M 52 38 H 62 V 150 H 52 C 45.4 150 40 144.6 40 138 V 50 C 40 43.4 45.4 38 52 38 Z" />
+
+  <!-- Top Bookmark Ribbon Fold -->
+  <path class="monet-bookmark-accent" d="M 78 38 V 28 C 78 25 102 25 102 28 V 38 Z" />
+
+  <!-- Bookmark Ribbon Body -->
+  <path class="monet-bookmark" d="M 78 38 H 102 V 92 L 90 82 L 78 92 Z" />
+
+  <!-- Elegant Minimal School Star Emblem on Cover -->
+  <path class="monet-accent-stroke" fill="none" d="M 112 118 L 115 125 L 122 128 L 115 131 L 112 138 L 109 131 L 102 128 L 109 125 Z" />
+</svg>

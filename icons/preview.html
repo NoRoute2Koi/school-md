@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SchoolMD — Monet App Icons Preview</title>
+  <style>
+    :root {
+      --bg: #F4EFF4;
+      --card-bg: #FFFFFF;
+      --text: #1D1B20;
+      --text-sec: #49454F;
+      --border: #E7E0EC;
+    }
+
+    /* Theme 1: Default Lavender / Violet */
+    .theme-lavender {
+      --monet-bg: #EADDFF;
+      --monet-container: #EADDFF;
+      --monet-primary: #6750A4;
+      --monet-primary-dark: #4F378B;
+      --monet-pages-color: #F7F2FA;
+      --monet-surface: #F7F2FA;
+      --monet-bookmark-color: #B3261E;
+      --monet-bookmark-dark-color: #8C1D18;
+      --monet-tertiary: #B3261E;
+      --monet-tertiary-dark: #8C1D18;
+      --monet-fg: #21005D;
+      --monet-fg-variant: #49454F;
+      --monet-accent: #6750A4;
+    }
+
+    /* Theme 2: Ocean Blue */
+    .theme-blue {
+      --monet-bg: #D0E4FF;
+      --monet-container: #D0E4FF;
+      --monet-primary: #0061A4;
+      --monet-primary-dark: #00487D;
+      --monet-pages-color: #F8F9FF;
+      --monet-surface: #F8F9FF;
+      --monet-bookmark-color: #006A6A;
+      --monet-bookmark-dark-color: #004F4F;
+      --monet-tertiary: #006A6A;
+      --monet-tertiary-dark: #004F4F;
+      --monet-fg: #001D36;
+      --monet-fg-variant: #41474D;
+      --monet-accent: #0061A4;
+    }
+
+    /* Theme 3: Sage Green */
+    .theme-green {
+      --monet-bg: #D7E8CD;
+      --monet-container: #D7E8CD;
+      --monet-primary: #3E6837;
+      --monet-primary-dark: #275021;
+      --monet-pages-color: #F7FBF1;
+      --monet-surface: #F7FBF1;
+      --monet-bookmark-color: #8A5100;
+      --monet-bookmark-dark-color: #6A3E00;
+      --monet-tertiary: #8A5100;
+      --monet-tertiary-dark: #6A3E00;
+      --monet-fg: #052100;
+      --monet-fg-variant: #42493F;
+      --monet-accent: #3E6837;
+    }
+
+    /* Theme 4: Sunset Amber */
+    .theme-amber {
+      --monet-bg: #FFDCC1;
+      --monet-container: #FFDCC1;
+      --monet-primary: #8F4C00;
+      --monet-primary-dark: #6E3800;
+      --monet-pages-color: #FFF8F5;
+      --monet-surface: #FFF8F5;
+      --monet-bookmark-color: #A03F5E;
+      --monet-bookmark-dark-color: #802745;
+      --monet-tertiary: #A03F5E;
+      --monet-tertiary-dark: #802745;
+      --monet-fg: #2E1500;
+      --monet-fg-variant: #51443B;
+      --monet-accent: #8F4C00;
+    }
+
+    /* Theme 5: Android 13 Themed Icon (Monochrome) */
+    .theme-monochrome {
+      --monet-bg: #E3E2E6;
+      --monet-container: #E3E2E6;
+      --monet-primary: #1B1B1F;
+      --monet-primary-dark: #46464F;
+      --monet-pages-color: #FFFFFF;
+      --monet-surface: #FFFFFF;
+      --monet-bookmark-color: #1B1B1F;
+      --monet-bookmark-dark-color: #46464F;
+      --monet-tertiary: #1B1B1F;
+      --monet-tertiary-dark: #46464F;
+      --monet-fg: #1B1B1F;
+      --monet-fg-variant: #5E5E62;
+      --monet-accent: #1B1B1F;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 32px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    p.subtitle {
+      color: var(--text-sec);
+      font-size: 14px;
+      margin-top: 0;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .palette-switcher {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .palette-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .palette-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .palette-btn.active {
+      background: #1D1B20;
+      color: #FFFFFF;
+      border-color: #1D1B20;
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      max-width: 980px;
+      width: 100%;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 28px;
+      padding: 24px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+    }
+
+    .icon-preview {
+      width: 160px;
+      height: 160px;
+      margin-bottom: 18px;
+      transition: transform 0.2s ease;
+    }
+
+    .icon-preview:hover {
+      transform: scale(1.04);
+    }
+
+    .icon-preview svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin: 8px 0 4px;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--text-sec);
+      line-height: 1.4;
+      margin: 0 0 16px;
+    }
+
+    .card a {
+      display: inline-block;
+      padding: 6px 14px;
+      border-radius: 12px;
+      background: #E8DEF8;
+      color: #4A4458;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body class="theme-lavender">
+
+  <h1>SchoolMD — Monet Иконки</h1>
+  <p class="subtitle">3 варианта закрытой книги с закладкой в дизайн-системе Material You (Monet) для динамического перекрашивания</p>
+
+  <div class="palette-switcher">
+    <button class="palette-btn active" onclick="setTheme('theme-lavender', this)">
+      <span class="dot" style="background: #6750A4;"></span> Лаванда (Default)
+    </button>
+    <button class="palette-btn" onclick="setTheme('theme-blue', this)">
+      <span class="dot" style="background: #0061A4;"></span> Океан (Blue)
+    </button>
+    <button class="palette-btn" onclick="setTheme('theme-green', this)">
+      <span class="dot" style="background: #3E6837;"></span> Шалфей (Green)
+    </button>
+    <button class="palette-btn" onclick="setTheme('theme-amber', this)">
+      <span class="dot" style="background: #8F4C00;"></span> Янтарь (Amber)
+    </button>
+    <button class="palette-btn" onclick="setTheme('theme-monochrome', this)">
+      <span class="dot" style="background: #1B1B1F;"></span> Themed (Monochrome)
+    </button>
+  </div>
+
+  <div class="grid">
+    <!-- Option 1 -->
+    <div class="card">
+      <div class="icon-preview" id="icon1"></div>
+      <h2>1. Expressive Squircle</h2>
+      <p>Мягкий сквиркл MD3, фактурная глубина страниц и классическая алая/акцентная закладка с двухсторонним вылетом.</p>
+      <a href="book_icon_expressive.svg" download>Скачать SVG</a>
+    </div>
+
+    <!-- Option 2 -->
+    <div class="card">
+      <div class="icon-preview" id="icon2"></div>
+      <h2>2. Minimal Duotone</h2>
+      <p>Круглый контейнер, элегантный переплет, двойная лента и геометрическая звезда SchoolMD на обложке.</p>
+      <a href="book_icon_minimal_duotone.svg" download>Скачать SVG</a>
+    </div>
+
+    <!-- Option 3 -->
+    <div class="card">
+      <div class="icon-preview" id="icon3"></div>
+      <h2>3. Themed Cutout Glyph</h2>
+      <p>Оптимизирован для Android 13+ Themed Icons: читается даже при заливке одним цветом за счет негативного пространства.</p>
+      <a href="book_icon_themed_glyph.svg" download>Скачать SVG</a>
+    </div>
+  </div>
+
+  <script>
+    async function loadSvg(url, elementId) {
+      const res = await fetch(url);
+      const text = await res.text();
+      document.getElementById(elementId).innerHTML = text;
+    }
+
+    loadSvg('book_icon_expressive.svg', 'icon1');
+    loadSvg('book_icon_minimal_duotone.svg', 'icon2');
+    loadSvg('book_icon_themed_glyph.svg', 'icon3');
+
+    function setTheme(themeClass, btn) {
+      document.body.className = themeClass;
+      document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

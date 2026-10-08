@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <!-- Monet Dynamic Theme Tokens -->
+    <style>
+      .monet-container { fill: var(--monet-bg, #EADDFF); }
+      .monet-cover { fill: var(--monet-primary, #6750A4); }
+      .monet-spine { fill: var(--monet-spine-color, #4F378B); }
+      .monet-pages { fill: var(--monet-pages-color, #F5EFF7); }
+      .monet-bookmark { fill: var(--monet-bookmark-color, #B3261E); }
+      .monet-bookmark-dark { fill: var(--monet-bookmark-dark-color, #8C1D18); }
+      .monet-line { stroke: var(--monet-line-color, rgba(255, 255, 255, 0.32)); stroke-width: 2.5; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <!-- Background: Material 3 Squircle Container -->
+  <rect class="monet-container" x="12" y="12" width="168" height="168" rx="46" />
+
+  <!-- Back Cover (provides depth and thickness) -->
+  <rect class="monet-spine" x="48" y="42" width="98" height="114" rx="10" />
+
+  <!-- Book Pages Block (visible on the right and bottom trim) -->
+  <path class="monet-pages" d="M 64 42 H 142 C 144 42 145 43 145 45 V 149 C 145 151 144 152 142 152 H 64 Z" />
+  <line x1="140" y1="46" x2="140" y2="148" stroke="#D0BCFF" stroke-width="1.5" stroke-linecap="round" opacity="0.4" />
+
+  <!-- Lower Bookmark Tail (peeking from bottom pages) -->
+  <path class="monet-bookmark" d="M 96 150 V 168 L 108 160 L 120 168 V 150 Z" />
+
+  <!-- Front Cover -->
+  <path class="monet-cover" d="M 52 36 H 136 C 141.5 36 144.5 39 144.5 44.5 V 143.5 C 144.5 149 141.5 152 136 152 H 52 C 45.4 152 40 146.6 40 140 V 48 C 40 41.4 45.4 36 52 36 Z" />
+
+  <!-- Spine Column / Crease -->
+  <path class="monet-spine" d="M 52 36 H 59 V 152 H 52 C 45.4 152 40 146.6 40 140 V 48 C 40 41.4 45.4 36 52 36 Z" />
+  <line x1="59" y1="36" x2="59" y2="152" stroke="rgba(0, 0, 0, 0.14)" stroke-width="2" />
+
+  <!-- Minimal MD3 Cover Accent Lines -->
+  <line class="monet-line" x1="72" y1="58" x2="128" y2="58" />
+  <line class="monet-line" x1="72" y1="70" x2="108" y2="70" />
+
+  <!-- Bookmark Ribbon Top Fold -->
+  <path class="monet-bookmark-dark" d="M 96 36 V 27 C 96 23.5 120 23.5 120 27 V 36 Z" />
+
+  <!-- Bookmark Ribbon Body -->
+  <path class="monet-bookmark" d="M 96 36 H 120 V 98 L 108 86 L 96 98 Z" />
+</svg>

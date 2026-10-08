@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <!-- Monet Dynamic Theme Tokens (Clean cutouts optimized for Android Themed Icons) -->
+    <style>
+      .monet-container { fill: var(--monet-bg, #E6E0E9); }
+      .monet-glyph-main { fill: var(--monet-fg, #21005D); }
+      .monet-glyph-secondary { fill: var(--monet-fg-variant, #49454F); }
+      .monet-glyph-accent { fill: var(--monet-accent, #6750A4); }
+    </style>
+  </defs>
+
+  <!-- Base Squircle Container (Can be tinted or transparent for launcher icons) -->
+  <rect class="monet-container" x="12" y="12" width="168" height="168" rx="48" />
+
+  <!-- Book Spine (Separated by 6dp negative space gap from cover) -->
+  <path class="monet-glyph-secondary" d="M 44 46 C 44 40.5 48 36 54 36 H 62 V 152 H 54 C 48 152 44 147.5 44 142 Z" />
+
+  <!-- Front Cover with Negative Space Cutout for Bookmark -->
+  <path class="monet-glyph-main" d="M 68 36 H 90 V 104 L 105 93 L 120 104 V 36 H 138 C 143.5 36 148 40.5 148 46 V 142 C 148 147.5 143.5 152 138 152 H 68 Z" />
+
+  <!-- Bookmark Top Loop (Extending above top edge) -->
+  <path class="monet-glyph-accent" d="M 94 36 V 26 C 94 22 116 22 116 26 V 36 Z" />
+
+  <!-- Bookmark Hanging Ribbon Body (Clean 4dp gap inside the cutout) -->
+  <path class="monet-glyph-accent" d="M 94 36 H 116 V 96 L 105 87 L 94 96 Z" />
+
+  <!-- Lower Bookmark Ribbon Tail (Peeking out from bottom edge) -->
+  <path class="monet-glyph-accent" d="M 94 156 H 116 V 172 L 105 163 L 94 172 Z" />
+</svg>
