@@ -564,8 +564,9 @@ fun HomeworkScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(top = 80.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .padding(horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             ContainedLoadingIndicator()
                             Spacer(Modifier.height(16.dp))
