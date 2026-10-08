@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fallback launcher colors for pre-Android 12 (API 26-30) -->
+    <color name="ic_launcher_background">#EADDFF</color>
+    <color name="ic_launcher_foreground">#21005D</color>
+</resources>

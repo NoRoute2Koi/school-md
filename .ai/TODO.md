@@ -44,6 +44,7 @@
 - [x] Implement official Material 3 Expressive ContainedLoadingIndicator (shape morphing inside rounded container) across Schedule, Homework, and Marks screens
 - [x] Unify loading screens: centered vertical alignment and consistent status labels ("Загрузка расписания...", "Загрузка заданий...", "Загрузка оценок...")
 - [x] Design 3 Monet-styled closed book with bookmark SVG icons for adaptive theming and dynamic recoloring
+- [x] Implement adaptive Monet launcher icon (`book_icon_themed_glyph.svg`) with dynamic system accent colors, light/dark mode, and always-on dynamic recoloring (even when Themed Icons are disabled)
 
 ## In Progress
 - [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)

@@ -54,6 +54,8 @@ Thumbs.db
 *.key
 *.p12
 google-services.json
+keystore.properties
+
 
 # Scratch / Mockup assets
 style-example/

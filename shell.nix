@@ -24,6 +24,7 @@ pkgs.mkShell {
     androidSdk
     pkgs.jdk17
     pkgs.android-tools
+    pkgs.apksigner
   ];
 
   shellHook = ''

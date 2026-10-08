@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dynamic Monet Colors (Android 12+, Dark Mode) -->
+    <!-- Always active even when system Themed Icons toggle is turned off -->
+    <color name="ic_launcher_background">@android:color/system_accent1_800</color>
+    <color name="ic_launcher_foreground">@android:color/system_accent1_100</color>
+</resources>

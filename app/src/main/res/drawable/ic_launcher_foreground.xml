@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.4"
+        android:scaleY="0.4"
+        android:translateX="15.6"
+        android:translateY="15.2">
+        <!-- Book Spine -->
+        <path
+            android:fillColor="@color/ic_launcher_foreground"
+            android:pathData="M 44,46 C 44,40.5 48,36 54,36 H 62 V 152 H 54 C 48,152 44,147.5 44,142 Z" />
+        <!-- Book Cover with Negative Space Bookmark Cutout -->
+        <path
+            android:fillColor="@color/ic_launcher_foreground"
+            android:pathData="M 68,36 H 90 V 104 L 105,93 L 120,104 V 36 H 138 C 143.5,36 148,40.5 148,46 V 142 C 148,147.5 143.5,152 138,152 H 68 Z" />
+        <!-- Bookmark Top Loop -->
+        <path
+            android:fillColor="@color/ic_launcher_foreground"
+            android:pathData="M 94,36 V 26 C 94,22 116,22 116,26 V 36 Z" />
+        <!-- Bookmark Ribbon Body -->
+        <path
+            android:fillColor="@color/ic_launcher_foreground"
+            android:pathData="M 94,36 H 116 V 96 L 105,87 L 94,96 Z" />
+        <!-- Bookmark Ribbon Bottom Tail -->
+        <path
+            android:fillColor="@color/ic_launcher_foreground"
+            android:pathData="M 94,156 H 116 V 172 L 105,163 L 94,172 Z" />
+    </group>
+</vector>
