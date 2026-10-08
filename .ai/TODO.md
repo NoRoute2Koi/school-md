@@ -45,6 +45,7 @@
 - [x] Unify loading screens: centered vertical alignment and consistent status labels ("Загрузка расписания...", "Загрузка заданий...", "Загрузка оценок...")
 - [x] Design 3 Monet-styled closed book with bookmark SVG icons for adaptive theming and dynamic recoloring
 - [x] Implement adaptive Monet launcher icon (`book_icon_themed_glyph.svg`) with dynamic system accent colors, light/dark mode, and always-on dynamic recoloring (even when Themed Icons are disabled)
+- [x] Redesign first launch flow into 3 MD3 Expressive screens (Welcome with centered app title & subtitle, Region Selection with MD3 List and checkmarks, Gosuslugi Auth with token validation, and tonal navigation buttons)
 
 ## In Progress
 - [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)
