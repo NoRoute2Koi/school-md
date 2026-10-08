@@ -43,6 +43,7 @@
 - [x] Fix fast day/week navigation in Schedule screen: show MD3 loading indicator instead of empty state flash during fetch and prefetch adjacent weeks
 - [x] Implement official Material 3 Expressive ContainedLoadingIndicator (shape morphing inside rounded container) across Schedule, Homework, and Marks screens
 - [x] Unify loading screens: centered vertical alignment and consistent status labels ("Загрузка расписания...", "Загрузка заданий...", "Загрузка оценок...")
+- [x] Design 3 Monet-styled closed book with bookmark SVG icons for adaptive theming and dynamic recoloring
 
 ## In Progress
 - [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)
