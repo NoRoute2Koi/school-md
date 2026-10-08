@@ -453,7 +453,7 @@ fun ProfileScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "schoolmd • Версия ${stringResource(R.string.app_version)}",
+                text = "${stringResource(R.string.app_name)} • Версия ${stringResource(R.string.app_version)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
