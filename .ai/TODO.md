@@ -42,6 +42,7 @@
 - [x] Full build verification (`assembleDebug` producing APK and `testDebugUnitTest` all passing in nix-shell)
 - [x] Fix fast day/week navigation in Schedule screen: show MD3 loading indicator instead of empty state flash during fetch and prefetch adjacent weeks
 - [x] Implement official Material 3 Expressive ContainedLoadingIndicator (shape morphing inside rounded container) across Schedule, Homework, and Marks screens
+- [x] Unify loading screens: centered vertical alignment and consistent status labels ("Загрузка расписания...", "Загрузка заданий...", "Загрузка оценок...")
 
 ## In Progress
 - [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)
