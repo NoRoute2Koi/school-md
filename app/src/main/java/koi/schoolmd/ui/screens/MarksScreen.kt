@@ -46,7 +46,9 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -94,6 +96,7 @@ enum class MarksViewTab(val title: String) {
     BY_SUBJECTS("По предметам")
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MarksScreen(
     session: AuthSession,
@@ -309,6 +312,7 @@ fun MarksScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MarksFeedByDays(
     monday: LocalDate,
@@ -471,7 +475,7 @@ private fun MarksFeedByDays(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        ContainedLoadingIndicator()
                     }
                 }
 
@@ -750,6 +754,7 @@ private fun MarkItemRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun MarksBySubjectsView(
     summaries: List<SubjectMarksSummary>,
@@ -765,7 +770,7 @@ private fun MarksBySubjectsView(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                ContainedLoadingIndicator()
             }
         }
 
