@@ -40,6 +40,7 @@
 - [x] Official Release v1.0.0 (full MD3 Expressive redesign, modal sheets, regional endpoints, performance audit)
 - [x] Setup reproducible NixOS development environment (`shell.nix` with JDK 17, Android SDK 35, platform-tools, adb)
 - [x] Full build verification (`assembleDebug` producing APK and `testDebugUnitTest` all passing in nix-shell)
+- [x] Fix fast day/week navigation in Schedule screen: show MD3 loading indicator instead of empty state flash during fetch and prefetch adjacent weeks
 
 ## In Progress
 - [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)
