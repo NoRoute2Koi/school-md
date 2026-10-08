@@ -37,10 +37,16 @@
   - Tapping mark in Marks screen (by date or by subject) opens Mark Detail sheet (score, control form, weight, exam/point status, teacher comment)
   - Tapping subject card in Marks screen opens Subject Summary sheet with period averages and interactive mark breakdown
   - Tapping card in Homework screen opens Homework Detail sheet (subject, due date, full description, materials, toggle completion action)
+- [x] Official Release v1.0.0 (full MD3 Expressive redesign, modal sheets, regional endpoints, performance audit)
+- [x] Setup reproducible NixOS development environment (`shell.nix` with JDK 17, Android SDK 35, platform-tools, adb)
+- [x] Full build verification (`assembleDebug` producing APK and `testDebugUnitTest` all passing in nix-shell)
 
 ## In Progress
-- [ ] Ready for testing and release v0.3.3 / subsequent features
+- [ ] Background sync & notifications architecture (WorkManager + NotificationCompat)
 
 ## Backlog / Future
-- [ ] Push notifications for new marks and homework
-- [ ] Offline caching sync and background refresh
+- [ ] Periodic background check & notifications for new marks and homework
+- [ ] Persistent offline caching sync (Room / SQLite)
+- [ ] Field-testing regional endpoints (Kaluga, Tyumen, Tatarstan, Dagestan)
+- [ ] Academic performance analytics & grade trends
+
