@@ -51,6 +51,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -104,8 +105,15 @@ fun ScheduleScreen(
     val today = remember { LocalDate.now() }
     var selectedDate by remember { mutableStateOf(today) }
 
-    var weekSchedule by remember { mutableStateOf<List<DaySchedule>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
+    val schedulesByWeek = remember {
+        mutableStateMapOf<LocalDate, List<DaySchedule>>().apply {
+            val initialMonday = today.with(DayOfWeek.MONDAY)
+            scheduleRepository.getCachedWeek(session, initialMonday)?.let {
+                put(initialMonday, it)
+            }
+        }
+    }
+    val loadingWeeks = remember { mutableStateMapOf<LocalDate, Boolean>() }
     var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedLessonForDetail by remember { mutableStateOf<LessonItem?>(null) }
@@ -122,7 +130,15 @@ fun ScheduleScreen(
     val isSelectedToday = selectedDate == today
 
     fun loadSchedule(monday: LocalDate, force: Boolean = false) {
-        if (force) isRefreshing = true else if (weekSchedule.isEmpty()) isLoading = true
+        val cached = scheduleRepository.getCachedWeek(session, monday)
+        if (cached != null && !force) {
+            schedulesByWeek[monday] = cached
+        }
+
+        if (schedulesByWeek[monday] == null || force) {
+            loadingWeeks[monday] = true
+        }
+        if (force) isRefreshing = true
         errorMessage = null
 
         scheduleRepository.fetchWeekSchedule(
@@ -130,15 +146,17 @@ fun ScheduleScreen(
             anchorDate = monday,
             forceRefresh = force
         ) { result ->
-            isLoading = false
-            isRefreshing = false
+            loadingWeeks[monday] = false
+            if (monday == currentMonday) {
+                isRefreshing = false
+            }
             result.fold(
                 onSuccess = { days ->
-                    weekSchedule = days
+                    schedulesByWeek[monday] = days
                     errorMessage = null
                 },
                 onFailure = { err ->
-                    if (weekSchedule.isEmpty()) {
+                    if (schedulesByWeek[monday] == null) {
                         errorMessage = err.localizedMessage ?: "Не удалось загрузить расписание"
                     }
                 }
@@ -146,9 +164,11 @@ fun ScheduleScreen(
         }
     }
 
-    // Trigger schedule load on currentMonday or session change
+    // Trigger schedule load on currentMonday or session change with prefetching adjacent weeks
     LaunchedEffect(currentMonday, session.token) {
         loadSchedule(currentMonday, force = false)
+        loadSchedule(currentMonday.minusWeeks(1), force = false)
+        loadSchedule(currentMonday.plusWeeks(1), force = false)
     }
 
     // Auto-scroll ribbon to keep selectedDate in view
@@ -172,8 +192,6 @@ fun ScheduleScreen(
             }
         }
     }
-
-    val currentDay = weekSchedule.firstOrNull { it.date == selectedDate }
 
     Column(
         modifier = modifier
@@ -203,11 +221,12 @@ fun ScheduleScreen(
                 )
             }
 
+            val isCurrentWeekLoading = loadingWeeks[currentMonday] == true
             IconButton(
                 onClick = { loadSchedule(currentMonday, force = true) },
-                enabled = !isLoading && !isRefreshing
+                enabled = !isCurrentWeekLoading && !isRefreshing
             ) {
-                if (isRefreshing) {
+                if (isRefreshing || isCurrentWeekLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         strokeWidth = 2.5.dp
@@ -397,94 +416,99 @@ fun ScheduleScreen(
                 }
                 .padding(horizontal = 16.dp)
         ) {
-            when {
-                isLoading && weekSchedule.isEmpty() -> {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                            strokeWidth = 3.dp
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Text(
-                            text = "Загрузка расписания...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+            AnimatedContent(
+                targetState = selectedDate,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                fadeIn(animationSpec = tween(200)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                        fadeOut(animationSpec = tween(180))
+                            )
+                    } else {
+                        (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
+                                fadeIn(animationSpec = tween(200)))
+                            .togetherWith(
+                                slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
+                                        fadeOut(animationSpec = tween(180))
+                            )
                     }
-                }
+                },
+                label = "ScheduleDayTransition"
+            ) { targetDate ->
+                val targetMonday = targetDate.with(DayOfWeek.MONDAY)
+                val targetSunday = targetMonday.plusDays(6)
+                val targetWeek = schedulesByWeek[targetMonday]
+                    ?: scheduleRepository.getCachedWeek(session, targetMonday)
+                val isTargetLoading = (loadingWeeks[targetMonday] == true || targetWeek == null) && errorMessage == null
 
-                errorMessage != null && weekSchedule.isEmpty() -> {
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 32.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.elevatedCardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
-                    ) {
+                when {
+                    isTargetLoading -> {
                         Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(vertical = 48.dp, horizontal = 24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.WarningAmber,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                text = "Не удалось загрузить расписание",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Text(
-                                text = errorMessage.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                                textAlign = TextAlign.Center
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 3.dp,
+                                modifier = Modifier.size(44.dp)
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = { loadSchedule(currentMonday, force = true) }) {
-                                Text("Попробовать снова")
+                            Text(
+                                text = "Загрузка расписания...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    errorMessage != null && targetWeek == null -> {
+                        ElevatedCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 32.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.elevatedCardColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.WarningAmber,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    text = "Не удалось загрузить расписание",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    text = errorMessage.orEmpty(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Button(onClick = { loadSchedule(targetMonday, force = true) }) {
+                                    Text("Попробовать снова")
+                                }
                             }
                         }
                     }
-                }
 
-                else -> {
-                    val allLessonsInWeek = weekSchedule.sumOf { it.lessons.size }
-                    AnimatedContent(
-                        targetState = selectedDate,
-                        transitionSpec = {
-                            if (targetState > initialState) {
-                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                        fadeIn(animationSpec = tween(200)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                                fadeOut(animationSpec = tween(180))
-                                    )
-                            } else {
-                                (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> -width / 4 } +
-                                        fadeIn(animationSpec = tween(200)))
-                                    .togetherWith(
-                                        slideOutHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> width / 4 } +
-                                                fadeOut(animationSpec = tween(180))
-                                    )
-                            }
-                        },
-                        label = "ScheduleDayTransition"
-                    ) { targetDate ->
-                        val targetMonday = targetDate.with(DayOfWeek.MONDAY)
-                        val targetSunday = targetMonday.plusDays(6)
-                        val effectiveWeek = if (targetMonday == currentMonday) weekSchedule
-                            else (scheduleRepository.getCachedWeek(session, targetMonday) ?: emptyList())
+                    else -> {
+                        val effectiveWeek = targetWeek ?: emptyList()
                         val daySchedule = effectiveWeek.find { it.date == targetDate }
                         val targetLessonsCount = effectiveWeek.sumOf { it.lessons.size }
                         if (daySchedule == null || daySchedule.lessons.isEmpty()) {
