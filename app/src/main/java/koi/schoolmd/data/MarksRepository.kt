@@ -92,13 +92,7 @@ class MarksRepository(
         onComplete: (Result<List<MarkItem>>) -> Unit
     ) {
         if (studentId == null) {
-            if (session.token.isBlank()) {
-                val mock = getMockMarks(LocalDate.now())
-                memoryMarks = mock
-                onComplete(Result.success(mock))
-            } else {
-                onComplete(Result.failure(IllegalStateException("Не удалось определить ID ученика")))
-            }
+            onComplete(Result.failure(IllegalStateException("Не удалось определить ID ученика")))
             return
         }
 
@@ -116,7 +110,7 @@ class MarksRepository(
         httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e("MarksRepo", "Failed to fetch marks: ${e.message}")
-                val fallback = memoryMarks ?: if (session.token.isBlank()) getMockMarks(LocalDate.now()) else emptyList()
+                val fallback = memoryMarks ?: emptyList()
                 if (fallback.isNotEmpty()) {
                     onComplete(Result.success(fallback))
                 } else {
@@ -314,50 +308,9 @@ class MarksRepository(
         }
     }
 
-    fun getMockMarks(anchorDate: LocalDate): List<MarkItem> {
-        val monday = anchorDate.with(DayOfWeek.MONDAY)
-        return listOf(
-            MarkItem(
-                id = 1,
-                value = "5",
-                weight = 1,
-                subject = "Русский язык",
-                date = monday,
-                controlFormName = "Ответ на уроке"
-            ),
-            MarkItem(
-                id = 2,
-                value = "4",
-                weight = 1,
-                subject = "Алгебра",
-                date = monday,
-                controlFormName = "Самостоятельная работа"
-            ),
-            MarkItem(
-                id = 3,
-                value = "5",
-                weight = 2,
-                subject = "Физика",
-                date = monday.plusDays(1),
-                controlFormName = "Контрольная работа",
-                isExam = true
-            ),
-            MarkItem(
-                id = 4,
-                value = "3",
-                weight = 1,
-                subject = "Химия",
-                date = monday.plusDays(2),
-                controlFormName = "Лабораторная работа"
-            ),
-            MarkItem(
-                id = 5,
-                value = "5",
-                weight = 1,
-                subject = "История",
-                date = monday.plusDays(3),
-                controlFormName = "Доклад"
-            )
-        )
+    fun clearCache() {
+        memoryMarks = null
+        memorySummaries = null
+        prefs.edit().clear().apply()
     }
 }

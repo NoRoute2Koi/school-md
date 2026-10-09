@@ -48,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,9 +56,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -114,15 +118,31 @@ fun ProfileScreen(
         }
     }
 
-    // Load bitmap if avatar URI is local
-    val avatarBitmap = remember(session.effectiveAvatarUri) {
-        session.effectiveAvatarUri?.let { uriStr ->
-            runCatching {
-                val uri = Uri.parse(uriStr)
-                context.contentResolver.openInputStream(uri)?.use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                }
-            }.getOrNull()
+    // Load bitmap if avatar URI is local (downscaled off the main thread)
+    var avatarBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(session.effectiveAvatarUri) {
+        val uriStr = session.effectiveAvatarUri
+        if (uriStr != null) {
+            avatarBitmap = withContext(Dispatchers.IO) {
+                runCatching {
+                    val uri = Uri.parse(uriStr)
+                    val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    context.contentResolver.openInputStream(uri)?.use { s ->
+                        BitmapFactory.decodeStream(s, null, boundsOptions)
+                    }
+                    val maxDim = maxOf(boundsOptions.outWidth, boundsOptions.outHeight)
+                    var sampleSize = 1
+                    while (maxDim / sampleSize > 512) {
+                        sampleSize *= 2
+                    }
+                    val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                    context.contentResolver.openInputStream(uri)?.use { s ->
+                        BitmapFactory.decodeStream(s, null, decodeOptions)?.asImageBitmap()
+                    }
+                }.getOrNull()
+            }
+        } else {
+            avatarBitmap = null
         }
     }
 
@@ -185,9 +205,10 @@ fun ProfileScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (avatarBitmap != null) {
+                val currentBitmap = avatarBitmap
+                if (currentBitmap != null) {
                     Image(
-                        bitmap = avatarBitmap,
+                        bitmap = currentBitmap,
                         contentDescription = "Аватар",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop

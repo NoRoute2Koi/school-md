@@ -10,12 +10,14 @@ class TeacherRepository(context: Context? = null) {
         context?.getSharedPreferences("school_teachers_prefs", Context.MODE_PRIVATE)
 
     private val cache = ConcurrentHashMap<String, String>()
+    private val normalizedCache = ConcurrentHashMap<String, String>()
 
     init {
         // Load dynamically saved teachers from local device private preferences
         prefs?.all?.forEach { (k, v) ->
             if (v is String && v.isNotBlank()) {
                 cache[k] = v
+                normalizedCache[normalize(k)] = v
             }
         }
     }
@@ -50,10 +52,10 @@ class TeacherRepository(context: Context? = null) {
         }
 
         val normTarget = normalize(trimmed)
-        for ((sub, name) in cache) {
-            val normSub = normalize(sub)
-            if (normTarget.isNotEmpty() && normSub.isNotEmpty()) {
-                if (normTarget == normSub || normTarget.contains(normSub) || normSub.contains(normTarget)) {
+        if (normTarget.isNotEmpty()) {
+            normalizedCache[normTarget]?.let { return it }
+            for ((normSub, name) in normalizedCache) {
+                if (normSub.isNotEmpty() && (normTarget.contains(normSub) || normSub.contains(normTarget))) {
                     return name
                 }
             }
@@ -66,7 +68,14 @@ class TeacherRepository(context: Context? = null) {
         val trimmedTeacher = teacherName.trim()
         if (trimmedSub.isNotBlank() && trimmedTeacher.isNotBlank()) {
             cache[trimmedSub] = trimmedTeacher
+            normalizedCache[normalize(trimmedSub)] = trimmedTeacher
             prefs?.edit()?.putString(trimmedSub, trimmedTeacher)?.apply()
         }
+    }
+
+    fun clearCache() {
+        cache.clear()
+        normalizedCache.clear()
+        prefs?.edit()?.clear()?.apply()
     }
 }

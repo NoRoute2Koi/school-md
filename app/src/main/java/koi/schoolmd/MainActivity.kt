@@ -127,6 +127,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onLogout = {
                             authRepository.clearSession()
+                            scheduleRepository.clearCache()
+                            homeworkRepository.clearCache()
+                            marksRepository.clearCache()
                             currentSession = null
                         },
                         onRefreshToken = { callback ->

@@ -15,9 +15,16 @@ import java.io.IOException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class HomeworkRepository(
     private val context: Context,
@@ -33,6 +40,8 @@ class HomeworkRepository(
         .readTimeout(20, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
+
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // Key: "${region}_${mondayDate}" -> List<HomeworkItem>
     private val memoryCache = ConcurrentHashMap<String, List<HomeworkItem>>()
@@ -53,6 +62,12 @@ class HomeworkRepository(
             }
             if (changed) editor.apply()
         }
+    }
+
+    fun clearCache() {
+        memoryCache.clear()
+        lessonDetailsCache.clear()
+        prefs.edit().clear().apply()
     }
 
     fun getCachedHomeworks(session: AuthSession, anchorDate: LocalDate): List<HomeworkItem>? {
@@ -308,56 +323,51 @@ class HomeworkRepository(
         lessonIds: List<Long>,
         onDone: (List<HomeworkItem>) -> Unit
     ) {
-        val results = mutableListOf<HomeworkItem>()
-        val latch = CountDownLatch(lessonIds.size)
-
-        for (lessonId in lessonIds) {
-            lessonDetailsCache[lessonId]?.let { cachedDetail ->
-                results.addAll(parseLessonHomeworks(cachedDetail))
-                latch.countDown()
-                return@let
-            }
-
-            val detailUrl = "https://${session.region.apiHost}/api/family/web/v1/lesson_schedule_items" +
-                    "/$lessonId?student_id=$studentId"
-            val req = Request.Builder()
-                .url(detailUrl)
-                .addHeader("Authorization", "Bearer ${session.token}")
-                .addHeader("X-Mes-Subsystem", "familyweb")
-                .addHeader("X-Mes-Role", "student")
-                .addHeader("Accept", "application/json")
-                .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
-                .get()
-                .build()
-
-            httpClient.newCall(req).enqueue(object : Callback {
-                override fun onFailure(call: Call, e: IOException) {
-                    latch.countDown()
-                }
-
-                override fun onResponse(call: Call, response: Response) {
-                    response.use { resp ->
-                        if (resp.isSuccessful) {
-                            val body = resp.body?.string().orEmpty()
-                            runCatching {
-                                val json = JSONObject(body)
-                                lessonDetailsCache[lessonId] = json
-                                val parsed = parseLessonHomeworks(json)
-                                synchronized(results) {
-                                    results.addAll(parsed)
-                                }
+        val distinctIds = lessonIds.distinct().take(20)
+        coroutineScope.launch {
+            val results = mutableListOf<HomeworkItem>()
+            withTimeoutOrNull(8000) {
+                coroutineScope {
+                    val deferredList = distinctIds.map { lessonId ->
+                        async {
+                            lessonDetailsCache[lessonId]?.let { cachedDetail ->
+                                return@async parseLessonHomeworks(cachedDetail)
                             }
+
+                            val detailUrl = "https://${session.region.apiHost}/api/family/web/v1/lesson_schedule_items" +
+                                    "/$lessonId?student_id=$studentId"
+                            val req = Request.Builder()
+                                .url(detailUrl)
+                                .addHeader("Authorization", "Bearer ${session.token}")
+                                .addHeader("X-Mes-Subsystem", "familyweb")
+                                .addHeader("X-Mes-Role", "student")
+                                .addHeader("Accept", "application/json")
+                                .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
+                                .get()
+                                .build()
+
+                            runCatching {
+                                httpClient.newCall(req).execute().use { resp ->
+                                    if (resp.isSuccessful) {
+                                        val body = resp.body?.string().orEmpty()
+                                        val json = JSONObject(body)
+                                        lessonDetailsCache[lessonId] = json
+                                        parseLessonHomeworks(json)
+                                    } else {
+                                        emptyList()
+                                    }
+                                }
+                            }.getOrDefault(emptyList())
                         }
                     }
-                    latch.countDown()
+                    val allParsed = deferredList.awaitAll()
+                    for (list in allParsed) {
+                        results.addAll(list)
+                    }
                 }
-            })
-        }
-
-        Thread {
-            latch.await(10, TimeUnit.SECONDS)
+            }
             onDone(results)
-        }.start()
+        }
     }
 
     private fun finishWithResult(
@@ -372,21 +382,9 @@ class HomeworkRepository(
             .distinctBy { it.homeworkEntryStudentId ?: it.homeworkEntryId ?: it.id }
             .sortedWith(compareBy({ it.date }, { it.subject }))
 
-        val finalItems = if (distinct.isNotEmpty()) {
-            distinct
-        } else {
-            // For authenticated users, empty list means there is truly no homework for this period!
-            // Never fall back to mock data when logged in.
-            if (session.token.isNotBlank()) {
-                emptyList()
-            } else {
-                getMockHomeworks(monday)
-            }
-        }
-
-        memoryCache[cacheKey] = finalItems
-        saveHomeworksToPrefs(cacheKey, finalItems)
-        onComplete(Result.success(finalItems))
+        memoryCache[cacheKey] = distinct
+        saveHomeworksToPrefs(cacheKey, distinct)
+        onComplete(Result.success(distinct))
     }
 
     fun toggleHomeworkDone(
@@ -694,80 +692,5 @@ class HomeworkRepository(
             )
         }
         return list
-    }
-
-    fun getMockHomeworks(anchorDate: LocalDate): List<HomeworkItem> {
-        val monday = anchorDate.with(DayOfWeek.MONDAY)
-        return listOf(
-            HomeworkItem(
-                id = "mock_1",
-                homeworkEntryStudentId = 1001L,
-                subject = "Русский язык",
-                date = monday,
-                description = "Упражнение 45 (письменно в тетради), повторить правила орфографии",
-                isDone = false,
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_2",
-                homeworkEntryStudentId = 1002L,
-                subject = "Химия",
-                date = monday,
-                description = "§9 и §10, выполнить упражнения 1-4 письменно в тетради",
-                isDone = false,
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_3",
-                homeworkEntryStudentId = 1003L,
-                subject = "Биология",
-                date = monday.plusDays(1),
-                description = "§7 читать, ответить на вопросы в конце параграфа устно",
-                isDone = true,
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_4",
-                homeworkEntryStudentId = 1004L,
-                subject = "Английский язык",
-                date = monday.plusDays(1),
-                description = "Учебник: стр. 22 №60 (читать, переводить), рабочая тетрадь: стр. 13 №5",
-                isDone = false,
-                materials = listOf(
-                    HomeworkMaterial(
-                        title = "Online Practice Unit 2",
-                        typeName = "Интерактивное задание"
-                    )
-                ),
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_5",
-                homeworkEntryStudentId = 1005L,
-                subject = "Геометрия",
-                date = monday.plusDays(2),
-                description = "Выучить теорему о сумме углов треугольника и следствия из неё",
-                isDone = false,
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_6",
-                homeworkEntryStudentId = 1006L,
-                subject = "Литература",
-                date = monday.plusDays(3),
-                description = "Знать содержание повести «Капитанская дочка», прочесть главы 3-5",
-                isDone = false,
-                teacherName = null
-            ),
-            HomeworkItem(
-                id = "mock_7",
-                homeworkEntryStudentId = 1007L,
-                subject = "Физика",
-                date = monday.plusDays(4),
-                description = "§8-12 доклад: «Практическое использование тепловых свойств веществ в энергосбережении»",
-                isDone = false,
-                teacherName = null
-            )
-        )
     }
 }

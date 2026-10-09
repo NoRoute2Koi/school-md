@@ -192,7 +192,7 @@ class AuthRepository(context: Context) {
                         }
                     }
 
-                    val newToken = extractTokenFromBody(body) ?: session.token
+                    val newToken = TokenExtractor.extractToken(body) ?: session.token
                     if (newToken != session.token) {
                         saveSession(session.region, newToken)
                     }
@@ -200,19 +200,6 @@ class AuthRepository(context: Context) {
                 }
             }
         })
-    }
-
-    private fun extractTokenFromBody(body: String): String? {
-        return runCatching {
-            val json = JSONObject(body)
-            when {
-                json.has("token") -> json.getString("token")
-                json.has("access_token") -> json.getString("access_token")
-                json.has("data") && json.getJSONObject("data").has("token") ->
-                    json.getJSONObject("data").getString("token")
-                else -> null
-            }
-        }.getOrNull() ?: if (body.trim().startsWith("eyJ")) body.trim() else null
     }
 
     companion object {

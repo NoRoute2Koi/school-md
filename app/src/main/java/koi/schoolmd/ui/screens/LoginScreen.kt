@@ -95,6 +95,7 @@ import koi.schoolmd.R
 import koi.schoolmd.data.JwtData
 import koi.schoolmd.data.JwtDecoder
 import koi.schoolmd.data.Region
+import koi.schoolmd.data.TokenExtractor
 import org.json.JSONObject
 
 @Composable
@@ -818,12 +819,22 @@ private fun InAppAuthWebView(
                                         onCookiesCaptured(cookies)
                                     }
 
-                                    // Auto-check for token when navigating to refresh URL
-                                    if (url.contains("/v2/token/refresh") || url.contains("token")) {
+                                     // Auto-check for token when navigating to refresh URL or if token is in query params
+                                    val uri = runCatching { Uri.parse(url) }.getOrNull()
+                                    val tokenFromQuery = uri?.getQueryParameter("token")
+                                        ?: uri?.getQueryParameter("access_token")
+                                    if (!tokenFromQuery.isNullOrBlank()) {
+                                        detectedToken = tokenFromQuery
+                                        onTokenExtracted(tokenFromQuery)
+                                    } else if (url.contains("/v2/token/refresh")) {
                                         view?.evaluateJavascript("(function() { return document.body.innerText; })();") { rawText ->
-                                            val clean = rawText?.trim()?.removeSurrounding("\"")?.replace("\\\"", "\"")?.replace("\\n", "")
+                                            val clean = rawText?.trim()
+                                                ?.removeSurrounding("\"")
+                                                ?.replace("\\\"", "\"")
+                                                ?.replace("\\n", "")
+                                                ?.replace("\\r", "")
                                             if (!clean.isNullOrBlank()) {
-                                                val token = extractTokenFromPage(clean)
+                                                val token = TokenExtractor.extractToken(clean)
                                                 if (token != null) {
                                                     detectedToken = token
                                                     onTokenExtracted(token)
@@ -844,20 +855,4 @@ private fun InAppAuthWebView(
             )
         }
     }
-}
-
-private fun extractTokenFromPage(text: String): String? {
-    if (text.startsWith("eyJ") && text.length > 50) return text
-    return runCatching {
-        val json = JSONObject(text)
-        when {
-            json.has("token") -> json.getString("token")
-            json.has("access_token") -> json.getString("access_token")
-            json.has("data") && json.getJSONObject("data").has("token") ->
-                json.getJSONObject("data").getString("token")
-            else -> null
-        }
-    }.getOrNull() ?: if (text.contains("eyJ")) {
-        Regex("eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+").find(text)?.value
-    } else null
 }
