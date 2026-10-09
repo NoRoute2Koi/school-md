@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -30,6 +31,17 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import android.net.http.SslError
+import android.os.Message
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,10 +52,12 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -75,19 +89,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import koi.schoolmd.R
 import koi.schoolmd.data.JwtData
 import koi.schoolmd.data.JwtDecoder
 import koi.schoolmd.data.Region
+import org.json.JSONObject
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (Region, String) -> Unit
+    onLoginSuccess: (Region, String) -> Unit,
+    onCookiesCaptured: (String) -> Unit = {}
 ) {
     var currentStep by remember { mutableIntStateOf(1) }
     var selectedRegion by remember { mutableStateOf(Region.MOSCOW_REGION) }
     var tokenInput by remember { mutableStateOf("") }
+    var activeWebViewUrl by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
 
     val jwtValidation by remember(tokenInput) {
@@ -97,18 +115,27 @@ fun LoginScreen(
         }
     }
 
+    if (activeWebViewUrl != null) {
+        InAppAuthWebView(
+            initialUrl = activeWebViewUrl!!,
+            tokenRefreshUrl = selectedRegion.tokenRefreshUrl,
+            onClose = { activeWebViewUrl = null },
+            onTokenExtracted = { token ->
+                tokenInput = token
+                activeWebViewUrl = null
+            },
+            onCookiesCaptured = onCookiesCaptured
+        )
+        return
+    }
+
     // Intercept hardware / gesture back button to navigate to previous onboarding step
     BackHandler(enabled = currentStep > 1) {
         currentStep--
     }
 
     fun openBrowser(url: String) {
-        runCatching {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        }
+        activeWebViewUrl = url
     }
 
     Scaffold(
@@ -581,4 +608,256 @@ private fun AuthStep(
 
         Spacer(Modifier.height(16.dp))
     }
+}
+
+@Composable
+private fun InAppAuthWebView(
+    initialUrl: String,
+    tokenRefreshUrl: String,
+    onClose: () -> Unit,
+    onTokenExtracted: (String) -> Unit,
+    onCookiesCaptured: (String) -> Unit
+) {
+    var currentUrl by remember { mutableStateOf(initialUrl) }
+    var webViewRef by remember { mutableStateOf<WebView?>(null) }
+    var pageTitle by remember { mutableStateOf("Авторизация") }
+    var detectedToken by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+
+    BackHandler(enabled = true) {
+        if (webViewRef?.canGoBack() == true) {
+            webViewRef?.goBack()
+        } else {
+            onClose()
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+        ) {
+            // Top App Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Default.Close, contentDescription = "Закрыть")
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = pageTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = runCatching { Uri.parse(currentUrl).host ?: currentUrl }.getOrDefault(currentUrl),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                IconButton(onClick = { webViewRef?.reload() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Обновить")
+                }
+                IconButton(onClick = {
+                    runCatching {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl)).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    }
+                }) {
+                    Icon(Icons.Default.OpenInBrowser, contentDescription = "Открыть во внешнем браузере")
+                }
+                IconButton(onClick = {
+                    webViewRef?.loadUrl(tokenRefreshUrl)
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.Key,
+                        contentDescription = "Получить токен",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            // Quick banner if token detected on the page
+            AnimatedVisibility(visible = detectedToken != null) {
+                detectedToken?.let { token ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Токен найден!",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Button(onClick = { onTokenExtracted(token) }) {
+                                Text("Использовать токен")
+                            }
+                        }
+                    }
+                }
+            }
+
+            // In-app WebView
+            AndroidView(
+                factory = { ctx ->
+                    WebView(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        settings.apply {
+                            javaScriptEnabled = true
+                            domStorageEnabled = true
+                            javaScriptCanOpenWindowsAutomatically = true
+                            setSupportMultipleWindows(true)
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+
+                            // Remove WebView signatures so Gosuslugi anti-bot doesn't block the request
+                            val defaultUa = userAgentString
+                            userAgentString = defaultUa
+                                .replace("; wv", "")
+                                .replace(Regex("Version/\\d+\\.\\d+ "), "")
+                        }
+
+                        val cookieManager = CookieManager.getInstance()
+                        cookieManager.setAcceptCookie(true)
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onReceivedTitle(view: WebView?, title: String?) {
+                                super.onReceivedTitle(view, title)
+                                if (!title.isNullOrBlank()) {
+                                    pageTitle = title
+                                }
+                            }
+
+                            // Route popups/OAuth redirects into the same WebView
+                            override fun onCreateWindow(
+                                view: WebView?,
+                                isDialog: Boolean,
+                                isUserGesture: Boolean,
+                                resultMsg: Message?
+                            ): Boolean {
+                                val transport = resultMsg?.obj as? WebView.WebViewTransport
+                                transport?.webView = view
+                                resultMsg?.sendToTarget()
+                                return true
+                            }
+                        }
+
+                        webViewClient = object : WebViewClient() {
+                            // Fallback safety net for Russian National CA (Минцифры) on .ru domains
+                            @android.annotation.SuppressLint("WebViewClientOnReceivedSslError")
+                            override fun onReceivedSslError(
+                                view: WebView?,
+                                handler: SslErrorHandler?,
+                                error: SslError?
+                            ) {
+                                val failingUrl = error?.url.orEmpty()
+                                val host = runCatching { Uri.parse(failingUrl).host.orEmpty() }.getOrDefault("")
+                                if (host.endsWith(".ru") || host.endsWith(".рф") || host.endsWith(".su") ||
+                                    host.contains("gosuslugi") || host.contains("mos.ru") || host.contains("mosreg")
+                                ) {
+                                    handler?.proceed()
+                                } else {
+                                    super.onReceivedSslError(view, handler, error)
+                                }
+                            }
+
+                            // Handle custom schemes (intent://, esia://) gracefully
+                            override fun shouldOverrideUrlLoading(
+                                view: WebView?,
+                                request: WebResourceRequest?
+                            ): Boolean {
+                                val url = request?.url?.toString() ?: return false
+                                if (url.startsWith("http://") || url.startsWith("https://")) {
+                                    return false
+                                }
+                                runCatching {
+                                    val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+                                    view?.context?.startActivity(intent)
+                                }
+                                return true
+                            }
+
+                            override fun onPageFinished(view: WebView?, url: String?) {
+                                super.onPageFinished(view, url)
+                                if (url != null) {
+                                    currentUrl = url
+                                    cookieManager.flush()
+                                    val cookies = cookieManager.getCookie(url)
+                                    if (!cookies.isNullOrBlank()) {
+                                        onCookiesCaptured(cookies)
+                                    }
+
+                                    // Auto-check for token when navigating to refresh URL
+                                    if (url.contains("/v2/token/refresh") || url.contains("token")) {
+                                        view?.evaluateJavascript("(function() { return document.body.innerText; })();") { rawText ->
+                                            val clean = rawText?.trim()?.removeSurrounding("\"")?.replace("\\\"", "\"")?.replace("\\n", "")
+                                            if (!clean.isNullOrBlank()) {
+                                                val token = extractTokenFromPage(clean)
+                                                if (token != null) {
+                                                    detectedToken = token
+                                                    onTokenExtracted(token)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        webViewRef = this
+                        loadUrl(initialUrl)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+            )
+        }
+    }
+}
+
+private fun extractTokenFromPage(text: String): String? {
+    if (text.startsWith("eyJ") && text.length > 50) return text
+    return runCatching {
+        val json = JSONObject(text)
+        when {
+            json.has("token") -> json.getString("token")
+            json.has("access_token") -> json.getString("access_token")
+            json.has("data") && json.getJSONObject("data").has("token") ->
+                json.getJSONObject("data").getString("token")
+            else -> null
+        }
+    }.getOrNull() ?: if (text.contains("eyJ")) {
+        Regex("eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+").find(text)?.value
+    } else null
 }

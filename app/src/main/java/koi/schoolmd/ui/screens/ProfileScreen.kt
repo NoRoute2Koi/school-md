@@ -59,6 +59,13 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Switch
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.ui.res.stringResource
 import koi.schoolmd.R
 import androidx.compose.ui.text.font.FontFamily
@@ -68,6 +75,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import koi.schoolmd.data.AppThemeMode
 import koi.schoolmd.data.AuthSession
 
 @Composable
@@ -77,6 +85,10 @@ fun ProfileScreen(
     onNameChanged: (String?) -> Unit,
     onLogout: () -> Unit,
     onRefreshToken: ((Result<String>) -> Unit) -> Unit,
+    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    onThemeModeChanged: (AppThemeMode) -> Unit = {},
+    isAutoRefreshEnabled: Boolean = true,
+    onAutoRefreshChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -155,58 +167,69 @@ fun ProfileScreen(
     ) {
         Spacer(Modifier.height(8.dp))
 
-        // Avatar with change overlay
+        // Avatar with unclipped edit badge
         Box(
-            modifier = Modifier
-                .size(110.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer)
-                .clickable {
-                    photoPickerLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
+            modifier = Modifier.size(116.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (avatarBitmap != null) {
-                Image(
-                    bitmap = avatarBitmap,
-                    contentDescription = "Аватар",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                val avatarInitials = session.studentProfile?.let { prof ->
-                    val l = prof.lastName.firstOrNull()?.uppercaseChar()
-                    val f = prof.firstName.firstOrNull()?.uppercaseChar()
-                    if (l != null && f != null) "$l$f" else if (f != null) "$f" else null
-                } ?: session.jwtData?.initials ?: "МШ"
+            // Circular Avatar surface
+            Box(
+                modifier = Modifier
+                    .size(110.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .clickable {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (avatarBitmap != null) {
+                    Image(
+                        bitmap = avatarBitmap,
+                        contentDescription = "Аватар",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    val avatarInitials = session.studentProfile?.let { prof ->
+                        val l = prof.lastName.firstOrNull()?.uppercaseChar()
+                        val f = prof.firstName.firstOrNull()?.uppercaseChar()
+                        if (l != null && f != null) "$l$f" else if (f != null) "$f" else null
+                    } ?: session.jwtData?.initials ?: "МШ"
 
-                Text(
-                    text = avatarInitials,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 32.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                    Text(
+                        text = avatarInitials,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 32.sp
+                        ),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
 
-            // Edit badge
+            // Edit badge (outside the avatar clip, unclipped in the bottom-right corner)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .size(32.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surface)
-                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape),
+                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
+                    .clickable {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
                     contentDescription = "Сменить фото",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
@@ -426,6 +449,95 @@ fun ProfileScreen(
                             )
                         )
                     }
+                }
+            }
+        }
+
+        // Settings Card
+        ElevatedCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Text(
+                    text = "Настройки",
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                // Theme selection
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Тема оформления",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AppThemeMode.entries.forEach { mode ->
+                            val isSelected = mode == themeMode
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onThemeModeChanged(mode) },
+                                label = {
+                                    Text(
+                                        text = mode.title,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    )
+                                },
+                                leadingIcon = if (isSelected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                } else null,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                HorizontalDivider()
+
+                // Auto-refresh token toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 12.dp)
+                    ) {
+                        Text(
+                            text = "Автообновление токена",
+                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Запрашивать свежий токен по сохранённым куки при каждом запуске",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isAutoRefreshEnabled,
+                        onCheckedChange = onAutoRefreshChanged
+                    )
                 }
             }
         }

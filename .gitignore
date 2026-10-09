@@ -61,3 +61,7 @@ keystore.properties
 style-example/
 scratch/
 official-app/
+templates/
+
+# RU Certificates
+certs/

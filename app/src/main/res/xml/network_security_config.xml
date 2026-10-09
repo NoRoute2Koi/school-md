@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Scoped to Russian domains (*.ru, *.su, and punycode rf) -->
+    <domain-config>
+        <domain includeSubdomains="true">ru</domain>
+        <domain includeSubdomains="true">su</domain>
+        <domain includeSubdomains="true">xn--p1ai</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/russian_trusted_root_ca" />
+            <certificates src="@raw/russian_trusted_sub_ca" />
+            <certificates src="@raw/russian_trusted_sub_ca_2024" />
+        </trust-anchors>
+    </domain-config>
+
+    <!-- All other domains only trust system CAs -->
+    <base-config>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -126,32 +126,70 @@ class AuthRepository(context: Context) {
             .remove("saved_prof_school_name")
             .remove("saved_prof_guid")
             .remove("saved_prof_student_id")
+            .remove(KEY_COOKIES)
             .apply()
+        runCatching {
+            android.webkit.CookieManager.getInstance().removeAllCookies(null)
+            android.webkit.CookieManager.getInstance().flush()
+        }
+    }
+
+    fun saveCookies(cookies: String?) {
+        prefs.edit().apply {
+            if (cookies != null) putString(KEY_COOKIES, cookies) else remove(KEY_COOKIES)
+        }.apply()
+    }
+
+    fun getSavedCookies(): String? {
+        return prefs.getString(KEY_COOKIES, null)
     }
 
     fun testOrRefreshToken(
         session: AuthSession,
         onComplete: (Result<String>) -> Unit
     ) {
-        val request = Request.Builder()
-            .url(session.region.tokenRefreshUrl)
-            .addHeader("Authorization", "Bearer ${session.token}")
+        val refreshUrl = session.region.tokenRefreshUrl
+        val webViewCookies = runCatching {
+            android.webkit.CookieManager.getInstance().getCookie(refreshUrl)
+        }.getOrNull()
+        val cookies = webViewCookies?.takeIf { it.isNotBlank() } ?: getSavedCookies()
+
+        val reqBuilder = Request.Builder()
+            .url(refreshUrl)
             .addHeader("Accept", "application/json, text/plain, */*")
             .addHeader("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
             .get()
-            .build()
 
-        httpClient.newCall(request).enqueue(object : Callback {
+        if (!cookies.isNullOrBlank()) {
+            reqBuilder.addHeader("Cookie", cookies)
+        }
+        if (session.token.isNotBlank()) {
+            reqBuilder.addHeader("Authorization", "Bearer ${session.token}")
+        }
+
+        httpClient.newCall(reqBuilder.build()).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 onComplete(Result.failure(e))
             }
 
             override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    val body = it.body?.string().orEmpty()
-                    if (!it.isSuccessful) {
-                        onComplete(Result.failure(IOException("HTTP ${it.code}: $body")))
+                response.use { resp ->
+                    val body = resp.body?.string().orEmpty()
+                    if (!resp.isSuccessful) {
+                        onComplete(Result.failure(IOException("HTTP ${resp.code}: $body")))
                         return
+                    }
+
+                    // Save any updated cookies from the server
+                    val setCookieHeaders = resp.headers("Set-Cookie")
+                    if (setCookieHeaders.isNotEmpty()) {
+                        runCatching {
+                            val cm = android.webkit.CookieManager.getInstance()
+                            for (header in setCookieHeaders) {
+                                cm.setCookie(refreshUrl, header)
+                            }
+                            cm.flush()
+                        }
                     }
 
                     val newToken = extractTokenFromBody(body) ?: session.token
@@ -182,5 +220,6 @@ class AuthRepository(context: Context) {
         private const val KEY_REGION = "auth_region"
         private const val KEY_AVATAR = "auth_custom_avatar_uri"
         private const val KEY_CUSTOM_NAME = "auth_custom_name"
+        private const val KEY_COOKIES = "auth_session_cookies"
     }
 }

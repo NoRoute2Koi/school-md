@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import koi.schoolmd.data.AppThemeMode
 import koi.schoolmd.data.AuthSession
 import koi.schoolmd.data.HomeworkRepository
 import koi.schoolmd.data.MarksRepository
@@ -53,6 +54,10 @@ fun DashboardScreen(
     onNameChanged: (String?) -> Unit,
     onLogout: () -> Unit,
     onRefreshToken: ((Result<String>) -> Unit) -> Unit,
+    themeMode: AppThemeMode = AppThemeMode.SYSTEM,
+    onThemeModeChanged: (AppThemeMode) -> Unit = {},
+    isAutoRefreshEnabled: Boolean = true,
+    onAutoRefreshChanged: (Boolean) -> Unit = {},
     onProfileLoaded: ((StudentProfile) -> Unit)? = null
 ) {
     var selectedTab by remember { mutableStateOf(MainTab.SCHEDULE) }
@@ -122,7 +127,11 @@ fun DashboardScreen(
                         onAvatarChanged = onAvatarChanged,
                         onNameChanged = onNameChanged,
                         onLogout = onLogout,
-                        onRefreshToken = onRefreshToken
+                        onRefreshToken = onRefreshToken,
+                        themeMode = themeMode,
+                        onThemeModeChanged = onThemeModeChanged,
+                        isAutoRefreshEnabled = isAutoRefreshEnabled,
+                        onAutoRefreshChanged = onAutoRefreshChanged
                     )
                 }
             }
